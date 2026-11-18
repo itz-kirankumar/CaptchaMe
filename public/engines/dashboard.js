@@ -1,41 +1,3 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Live dashboard - CaptchaMe</title>
-<link rel="icon" href="/logo.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css"></head><body><main>
-<nav class="nav">
-  <a class="brand" href="/"><img src="/logo.svg" width="26" height="26" alt="">CaptchaMe</a>
-  <div class="links">
-    <a href="/check.html">Try it</a>
-    <a href="/live.html">Live run</a>
-    <a href="/agent.html">Agents</a>
-  </div>
-</nav>
-
-<h1 class="page">Live dashboard</h1>
-<p class="sub">Every check, call, block and appeal, as it happens. This is what a site operator watches.</p>
-
-<div class="statgrid" id="summary">
-  <div class="stat"><div class="n" id="s-saved">-</div><div class="l">compute protected</div></div>
-  <div class="stat"><div class="n" id="s-blocked">-</div><div class="l">over-cap calls refused</div></div>
-  <div class="stat"><div class="n" id="s-actors">-</div><div class="l">actors</div></div>
-  <div class="stat"><div class="n" id="s-appeals">-</div><div class="l">open appeals</div></div>
-</div>
-
-<div class="card">
-  <h2 style="margin-top:0">Fair-share ledger</h2>
-  <div style="overflow-x:auto"><table><thead><tr><th>Actor</th><th>Kind</th><th>Spent</th><th>Allowance</th><th>Left</th><th>Blocked</th></tr></thead><tbody id="actors"><tr><td colspan="6" class="note">Loading...</td></tr></tbody></table></div>
-</div>
-<div class="card">
-  <h2 style="margin-top:0">Appeals</h2>
-  <div id="appeals" class="feed"></div>
-</div>
-<div class="card">
-  <h2 style="margin-top:0">Event feed</h2>
-  <div id="feed" class="feed"></div>
-</div>
-<script>
 const KEY = new URLSearchParams(location.search).get('key') || 'demo-admin';
 let since = 0;
 async function pull() {
@@ -79,5 +41,3 @@ async function resolveAppeal(id, action) {
   await fetch('/api/admin/appeal/' + id, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': KEY }, body: JSON.stringify({ action }) });
 }
 pull();
-</script>
-</main></body></html>

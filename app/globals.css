@@ -1,3 +1,6 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
 /* CaptchaMe design system */
 :root {
   --bg: #06080d;

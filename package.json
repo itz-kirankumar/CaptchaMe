@@ -1,13 +1,27 @@
 {
   "name": "captchame",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "private": true,
   "description": "A door only live humans walk through, a signed lane for honest AI agents, and a fair-share ledger that caps what any one actor can take.",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "legacy": "node server.js",
     "test": "node test/e2e.js",
     "demo:attack": "node demo/bots.js"
   },
   "license": "MIT",
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "next": "^16.4.6",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "tailwindcss": "^4.3.5"
+  }
 }

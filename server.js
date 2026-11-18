@@ -366,10 +366,12 @@ route('POST', '/api/admin/appeal/:id', async (req, res, params) => {
 });
 
 // ---------- honeypot trap (invisible to people, visible to DOM-reading agents) ----------
-route('GET', '/trap', async (req, res) => {
+const trapHandler = async (req, res) => {
   await logEvent('trap', 'Trap link followed: only something reading the raw DOM would see it', { lane: 'trap' });
   send(res, 200, '<!doctype html><title>Trap</title><body style="background:#0b0e14;color:#e8ecf4;font-family:sans-serif;padding:40px">This link is invisible to people and marked hidden from assistive tech. Only a program reading the raw page could follow it. This visit has been logged as automated traffic.</body>', { 'Content-Type': 'text/html' });
-});
+};
+route('GET', '/trap', trapHandler);
+route('GET', '/api/trap', trapHandler); // alias: Next.js rewrites /trap here
 
 // ---------- static ----------
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };

@@ -9,7 +9,7 @@
   var onpass = s.getAttribute('data-onpass');
   var origin = new URL(s.src).origin;
   var f = document.createElement('iframe');
-  f.src = origin + '/check.html?embed=1&site=' + encodeURIComponent(site);
+  f.src = origin + '/check?embed=1&site=' + encodeURIComponent(site);
   f.title = 'CaptchaMe human check';
   f.setAttribute('allow', 'microphone');
   f.style.cssText = 'width:100%;max-width:620px;height:680px;border:0;border-radius:16px;background:#0b0f17;display:block;';
