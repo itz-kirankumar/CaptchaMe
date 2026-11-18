@@ -11,7 +11,14 @@
   const col = n => cmVar(n);
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
 
+  let NONCE = null;
+  async function getNonce() {
+    if (NONCE) return NONCE;
+    try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
+    return NONCE;
+  }
   async function post(url, body) {
+    if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
     if (url === '/api/challenge/submit' && FORM) body = { ...body, form_hash: FORM };
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { status: r.status, body: await r.json() };

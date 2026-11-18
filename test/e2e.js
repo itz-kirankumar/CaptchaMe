@@ -14,7 +14,14 @@ function check(name, cond, extra = '') {
   if (cond) { passed++; console.log('  PASS', name); }
   else { failed++; console.log('  FAIL', name, extra); }
 }
+const NONCES = {};
+async function pageNonce(headers = {}) {
+  const key = headers['User-Agent'] || '';
+  if (!NONCES[key]) { const r = await get('/api/page/nonce', headers); NONCES[key] = r.body && r.body.nonce; }
+  return NONCES[key];
+}
 async function post(path, body, headers = {}) {
+  if (body && (path === '/api/pass/silent' || path === '/api/pass/nudge' || path === '/api/challenge/start')) body = { ...body, page_nonce: await pageNonce(headers) };
   const r = await fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
   let b = null; try { b = await r.json(); } catch {}
   return { status: r.status, body: b };
@@ -342,6 +349,13 @@ async function runChallenge(type, payloadFn, wait = true) {
     check('shield check API returns a decision with reasons', chk.status === 200 && chk.body.decision && chk.body.reasons.length > 0, JSON.stringify(chk.body));
     const st = await get('/api/admin/shield', { 'X-Admin-Key': process.env.POP_ADMIN_KEY });
     check('shield state readable by admin', st.status === 200 && st.body.actors.length > 0);
+  }
+
+  {
+    // a bare API caller with no live page view is refused before any challenge runs
+    const r = await fetch(BASE + '/api/challenge/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'ring' }) });
+    const b = await r.json().catch(() => ({}));
+    check('challenge start without a live page nonce is refused', r.status === 403 && b.error === 'no_page_nonce', JSON.stringify(b));
   }
 
   console.log('\n== hidden schedule and answer window ==');

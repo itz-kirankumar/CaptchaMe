@@ -6,7 +6,15 @@ const statusEl = document.getElementById('status');
 const out = document.getElementById('out');
 
 const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
+let NONCE = null;
+async function getNonce() {
+  if (NONCE) return NONCE;
+  try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
+  return NONCE;
+}
+
 async function post(url, body) {
+  if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return { status: r.status, body: await r.json() };
 }

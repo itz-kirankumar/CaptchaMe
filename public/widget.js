@@ -18,8 +18,27 @@
   var s = document.currentScript;
   var ORIGIN = s ? new URL(s.src).origin : location.origin;
 
+  // One page nonce per page view, shared by every protected form on the page.
+  var CM_NONCE = null, CM_NONCE_STARTED = false;
+  function fetchNonce() {
+    if (CM_NONCE_STARTED) return Promise.resolve(CM_NONCE);
+    CM_NONCE_STARTED = true;
+    return fetch(ORIGIN + '/api/page/nonce', { cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.nonce) { CM_NONCE = d.nonce; } return CM_NONCE; })
+      .catch(function () { return null; });
+  }
+
   function post(url, body) {
-    return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (url === '/api/challenge/start') {
+      return fetchNonce().then(function (n) {
+        return send(url, n ? Object.assign({}, body, { page_nonce: n }) : body);
+      });
+    }
+    return send(url, body);
+  }
+  function send(url, b) {
+    return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
       .then(function (r) { return r.json(); });
   }
 
