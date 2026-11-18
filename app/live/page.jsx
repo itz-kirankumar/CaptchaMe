@@ -1,30 +1,39 @@
-import Nav from '../../components/Nav';
+import Link from 'next/link';
 import ScriptEngine from '../../components/ScriptEngine';
+import PageHead from '../../components/PageHead';
 export const metadata = { title: 'Live run: bot vs human' };
 
 export default function Page() {
   return (<>
-    <Nav links={[['/check', 'Try it yourself'], ['/how', 'How it works'], ['/dashboard', 'Dashboard']]} />
+    <PageHead kicker="Live run" title="Bot vs human, judged live">
+      Pick a format and an attacker. Both sides play out on screen in real time; the movement is simulated so you can watch it, and the verdicts come from the real CaptchaMe server over the same API every visitor uses.
+    </PageHead>
 
-    <h1 className="page">Bot vs human, judged live</h1>
-    <p className="sub">Two cursors follow the same kind of moving ring at the same time. On the left, a script that read the published path and tracks it perfectly. On the right, a hand with reaction lag, wander and constant small corrections. Both cursors are simulated here so you can watch; the judging is the real CaptchaMe server, live. Then <a href="/check">try the human side yourself</a>.</p>
-
-    <p style={{ margin: '0 0 18px' }}><button id="go">Run it live</button> <span className="note" id="status"></span></p>
+    <div className="controls">
+      <select id="fmt" aria-label="Format">
+        <option value="ring">Follow the ring</option>
+        <option value="targets">Targets (Fitts&apos; law)</option>
+        <option value="clash">Colour clash</option>
+        <option value="reflex">Catch the flash</option>
+      </select>
+      <select id="atk" aria-label="Attacker"></select>
+      <button id="go">Run it live</button>
+      <span className="note" id="status" style={{ margin: 0 }}></span>
+    </div>
 
     <div className="livegrid">
       <div className="livecard">
-        <h3><span className="chip bot">script bot</span> Perfect path replay</h3>
-        <canvas id="botcv" width="400" height="260"></canvas>
+        <h3><span className="chip bot">attacker</span> <span id="atkName">Script</span></h3>
+        <canvas id="botcv" width="560" height="340"></canvas>
         <div id="botout"></div>
       </div>
       <div className="livecard">
         <h3><span className="chip human">human</span> Messy, lagging, alive</h3>
-        <canvas id="humcv" width="400" height="260"></canvas>
+        <canvas id="humcv" width="560" height="340"></canvas>
         <div id="humout"></div>
       </div>
     </div>
-
-    <p className="note">Every verdict lands on the <a href="/dashboard">live dashboard</a>. Open it on a second screen during a demo and watch attacks get stamped in real time.</p>
-    <ScriptEngine srcs={['/engines/verdict.js', '/engines/live.js']} />
+    <p className="note">Every verdict lands in <Link href="/analytics">analytics</Link>. Then <Link href="/check">try the human side yourself</Link>, or point a real tool at the <Link href="/arena">arena</Link>.</p>
+    <ScriptEngine srcs={['/engines/verdict.js', '/engines/actors.js', '/engines/live.js']} />
   </>);
 }

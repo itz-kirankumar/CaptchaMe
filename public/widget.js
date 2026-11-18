@@ -12,7 +12,7 @@
   f.src = origin + '/check?embed=1&site=' + encodeURIComponent(site);
   f.title = 'CaptchaMe human check';
   f.setAttribute('allow', 'microphone');
-  f.style.cssText = 'width:100%;max-width:620px;height:680px;border:0;border-radius:16px;background:#0b0f17;display:block;';
+  f.style.cssText = 'width:100%;max-width:640px;height:720px;border:0;border-radius:18px;background:#07080c;display:block;';
   s.parentNode.insertBefore(f, s.nextSibling);
   window.addEventListener('message', function (e) {
     if (e.origin !== origin || !e.data || e.data.type !== 'captchame:pass') return;

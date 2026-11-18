@@ -1,25 +1,29 @@
-import Nav from '../../components/Nav';
+import Link from 'next/link';
 import ScriptEngine from '../../components/ScriptEngine';
-export const metadata = { title: 'Voice presence' };
+import PageHead from '../../components/PageHead';
+import { Mark } from '../../components/Logo';
+export const metadata = { title: 'Voice path' };
 
 export default function Page() {
   return (<>
-    <Nav links={[['/check', 'Pointer checks'], ['/live', 'Live run'], ['/dashboard', 'Dashboard']]} />
-
-    <h1 className="page">The voice path</h1>
-    <p className="sub">The accessible way through the door: no pointer, no timed visual test. Four words appear and are spoken, one at a time. Say each word back when you hear it. We check that a live voice answers, and what it says.</p>
+    <PageHead kicker="Voice path" title="The accessible way through the door">
+      No pointer, no timed visual test. Four words appear and are spoken, one at a time. Say each word back when you hear it. The server checks that a live voice answers, when it answers, and what it says.
+    </PageHead>
 
     <div className="widget">
       <div className="word" id="wordBox">Press start when ready</div>
       <div className="meter"><i id="prog" style={{ width: '0%' }}></i></div>
-      <p><button id="start">Start voice check</button>{' '}
-      <button className="ghost" id="perm">Allow microphone</button></p>
-      <p className="note" id="status">Needs a microphone. Words are matched on our server by Sarvam&apos;s speech recognition; your browser&apos;s own recognition is the automatic fallback. Timing is measured from your mic either way.</p>
-      <div id="out"></div>
-      <div className="wmark"><img src="/logo.svg" width="15" height="15" alt="" />Protected by CaptchaMe</div>
+      <div className="row"><button id="start">Start voice check</button><button className="ghost" id="perm">Allow microphone</button></div>
+      <p className="note" id="status">Needs a microphone. Words are matched on the server by Sarvam&apos;s speech recognition, with your browser&apos;s own recognition as the fallback. Timing is measured from your microphone either way.</p>
+      <div id="out" aria-live="polite"></div>
+      <div className="wmark"><Mark size={14} />Protected by CaptchaMe</div>
     </div>
 
-    <p className="note">Honest note: a voice check raises the cost for AI voice agents. It does not by itself prove a human, so it always sits beside the fair-share cap. <a href="/">Back</a></p>
+    <div className="card">
+      <h2>Why this is not an audio captcha</h2>
+      <p>Classic audio captchas play a clip and ask you to type it, which is exactly what speech-to-text extensions like Buster solve for free. Here nothing is transcribed for you: you speak, live, and the server scores when each word starts relative to its prompt and how that timing varies. A playback script answers at one uniform delay.</p>
+      <p>Honest limit: a good text-to-speech pipeline with human-like jitter can pass this path. It is worth less on the ledger than a pointer pass, and it always sits behind the fair-share cap. <Link href="/check">Pointer formats</Link></p>
+    </div>
     <ScriptEngine srcs={['/engines/verdict.js', '/engines/voice.js']} />
   </>);
 }

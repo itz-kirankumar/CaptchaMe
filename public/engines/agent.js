@@ -1,4 +1,5 @@
-'use strict';
+(function () {
+  'use strict';
 const log = document.getElementById('log');
 function line(text, cls) {
   const d = document.createElement('div');
@@ -40,3 +41,4 @@ document.getElementById('run').addEventListener('click', async () => {
     }
   } catch (e) { line('Error: ' + e.message, 'fail'); }
 });
+})();

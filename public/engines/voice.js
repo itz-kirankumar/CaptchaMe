@@ -1,4 +1,5 @@
-'use strict';
+(function () {
+  'use strict';
 const wordBox = document.getElementById('wordBox');
 const prog = document.getElementById('prog');
 const statusEl = document.getElementById('status');
@@ -121,7 +122,7 @@ document.getElementById('start').addEventListener('click', async () => {
     transcript: transcript.trim(),
   });
   statusEl.textContent = engine === 'sarvam' ? 'Transcribed by Sarvam on the server.' : 'Transcribed in your browser.';
-  const passed = verdict(out, res, { redirect: true, failHint: 'You can retry here, or use the ring or beat path instead.' });
-  if (passed) setTimeout(() => location.href = '/use.html', 2400);
+  verdict(out, res, { failHint: 'You can retry here, or use a pointer format instead.' });
   wordBox.textContent = 'Press start when ready';
 });
+})();

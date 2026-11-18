@@ -1,94 +1,112 @@
-'use strict';
-// Side-by-side live judging: a perfect-tracking script vs a human-shaped hand.
-// Movement data is generated client-side (clearly labeled as simulated); the
-// verdicts come from the real server over the same API every visitor uses.
-async function post(url, body) {
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  return { status: r.status, body: await r.json() };
-}
-function gauss(rng) { return (rng() + rng() + rng() + rng() - 2) * 0.5; }
-function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function targetAt(P, tms) {
-  const t = tms / 1000;
-  let px = P.px, py = P.py;
-  for (const d of (P.darts || [])) { if (tms >= d.at) { px = d.px; py = d.py; } }
-  return { x: 0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + px), y: 0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + py) };
-}
-function scriptSamples(P) {
-  const out = [];
-  for (let t = 0; t < P.durationMs; t += 16) { const g = targetAt(P, t); out.push({ t, x: +g.x.toFixed(4), y: +g.y.toFixed(4) }); }
-  return out;
-}
-function humanSamples(P, seed) {
-  const rng = mulberry(seed);
-  const lag = 140 + rng() * 120;
-  const out = [];
-  let wx = 0, wy = 0, cx = null, cy = null;
-  for (let t = 0; t < P.durationMs; t += 16 + rng() * 6) {
-    wx = wx * 0.95 + gauss(rng) * 0.004;
-    wy = wy * 0.95 + gauss(rng) * 0.004;
-    const g = targetAt(P, t - lag);
-    if (cx === null) { cx = g.x; cy = g.y; }
-    cx += (g.x - cx) * 0.25;
-    cy += (g.y - cy) * 0.25;
-    out.push({ t: Math.round(t), x: +(cx + wx + gauss(rng) * 0.01).toFixed(4), y: +(cy + wy + gauss(rng) * 0.01).toFixed(4) });
-  }
-  return out;
-}
-
-function animate(cv, P, samples, done) {
-  const ctx = cv.getContext('2d');
-  const t0 = performance.now();
-  function frame() {
-    const t = performance.now() - t0;
-    if (t >= P.durationMs) return done();
-    const g = targetAt(P, t);
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    ctx.beginPath(); ctx.arc(g.x * cv.width, g.y * cv.height, 20, 0, 7);
-    ctx.strokeStyle = '#7dd3fc'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.beginPath(); ctx.arc(g.x * cv.width, g.y * cv.height, 3, 0, 7); ctx.fillStyle = '#7dd3fc'; ctx.fill();
-    // latest simulated cursor position at time t
-    let cur = null;
-    for (const s of samples) { if (s.t <= t) cur = s; else break; }
-    if (cur) {
-      ctx.beginPath(); ctx.arc(cur.x * cv.width, cur.y * cv.height, 7, 0, 7);
-      ctx.fillStyle = 'rgba(232,236,244,.85)'; ctx.fill();
-    }
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-}
-
-document.getElementById('go').addEventListener('click', async () => {
+(function () {
+  'use strict';
   const go = document.getElementById('go');
-  const status = document.getElementById('status');
-  go.disabled = true;
-  document.getElementById('botout').innerHTML = '';
-  document.getElementById('humout').innerHTML = '';
-  status.textContent = 'Two challenges started. Watch the cursors for 7 seconds...';
+  if (!go || !window.CMActors) return;
+  const A = window.CMActors;
+  const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
+  const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CM-Attacker': 'live run' }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
+  const seed = () => Math.random() * 1e9 | 0;
 
-  const [rb, rh] = await Promise.all([
-    post('/api/challenge/start', { type: 'ring' }),
-    post('/api/challenge/start', { type: 'ring' }),
-  ]);
-  if (rb.status !== 200 || rh.status !== 200) { status.textContent = 'Could not start challenges.'; go.disabled = false; return; }
+  // attacker options per format; each returns a submit payload
+  const ATTACKERS = {
+    ring: [['script', 'Script that read the path', P => ({ samples: A.scriptRing(P) })], ['agent', 'Look-think-act agent', P => ({ samples: A.agentRing(P) })]],
+    targets: [['script', 'Script clicking exact centres', P => A.scriptTargets(P)], ['adaptive', 'Mouse bot, straight constant-speed paths', P => A.adaptiveTargets(P)], ['agent', 'Look-think-act agent', P => A.agentTargets(P)]],
+    clash: [['reader', 'Agent reading the page text', P => ({ responses: A.readerClash(P) })], ['script', 'Timer that knows the answers', P => ({ responses: A.scriptClash(P) })], ['agent', 'Look-think-act agent', P => ({ responses: A.agentClash(P) })]],
+    reflex: [['script', 'Timer that clicks every flash', P => ({ clicks: A.scriptReflex(P.rounds) })], ['agent', 'Look-think-act agent', P => ({ clicks: A.agentReflex(P.rounds) })]],
+  };
+  const HUMAN = {
+    ring: P => ({ samples: A.humanRing(P, seed()) }),
+    targets: P => A.humanTargets(P, seed()),
+    clash: P => ({ responses: A.humanClash(P, seed()) }),
+    reflex: P => ({ clicks: A.humanReflex(P.rounds, seed()) }),
+  };
+  const fmtSel = document.getElementById('fmt'), atkSel = document.getElementById('atk');
+  function fillAttackers() { atkSel.innerHTML = ATTACKERS[fmtSel.value].map(([id, label]) => '<option value="' + id + '">' + label + '</option>').join(''); document.getElementById('atkName').textContent = atkSel.options[0].text; }
+  fmtSel.onchange = fillAttackers; atkSel.onchange = () => { document.getElementById('atkName').textContent = atkSel.selectedOptions[0].text; };
+  fillAttackers();
 
-  const botS = scriptSamples(rb.body.params);
-  const humS = humanSamples(rh.body.params, (Math.random() * 1e9) | 0);
+  const duration = (fmt, P, pay) => fmt === 'ring' ? P.durationMs : fmt === 'reflex' ? P.totalMs : fmt === 'clash' ? P.totalMs : (pay.clicks.length ? pay.clicks[pay.clicks.length - 1].t + 400 : 3000);
 
-  let botRes = null, humRes = null;
-  await Promise.all([
-    new Promise(res => animate(document.getElementById('botcv'), rb.body.params, botS, res)),
-    new Promise(res => animate(document.getElementById('humcv'), rh.body.params, humS, res)),
-  ]);
+  function drawFrame(cv, fmt, P, pay, t) {
+    const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    if (fmt === 'ring') {
+      const g = A.targetAt(P, t);
+      ctx.beginPath(); ctx.arc(g.x * W, g.y * H, 22, 0, 7); ctx.strokeStyle = v('--brand'); ctx.lineWidth = 3; ctx.stroke();
+      let cur = null; for (const s of pay.samples) { if (s.t <= t) cur = s; else break; }
+      if (cur) { ctx.beginPath(); ctx.arc(cur.x * W, cur.y * H, 7, 0, 7); ctx.fillStyle = v('--text'); ctx.fill(); }
+    } else if (fmt === 'targets') {
+      const kx = W / P.field.w, ky = H / P.field.h;
+      const idx = pay.clicks.findIndex(c => c.t > t);
+      const tg = P.targets[idx === -1 ? P.targets.length - 1 : pay.clicks[idx].i];
+      if (idx !== -1 && tg) { ctx.beginPath(); ctx.arc(tg.x * kx, tg.y * ky, tg.r * kx, 0, 7); ctx.fillStyle = v('--brand'); ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = v('--brand'); ctx.lineWidth = 2.5; ctx.stroke(); }
+      let pos = { x: P.field.w / 2, y: P.field.h / 2 };
+      for (const s of pay.samples) { if (s.t <= t) pos = s; else break; }
+      for (const c of pay.clicks) { if (c.t <= t && (!pay.samples.length || c.t >= (pos.t || 0))) pos = c; }
+      ctx.beginPath(); ctx.arc(pos.x * kx, pos.y * ky, 6, 0, 7); ctx.fillStyle = v('--text'); ctx.fill();
+      ctx.fillStyle = v('--muted'); ctx.font = '600 13px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(Math.min(P.targets.length, (idx === -1 ? P.targets.length : idx)) + ' / ' + P.targets.length, 10, 10);
+    } else if (fmt === 'clash') {
+      const i = P.trials.findIndex(tr => t >= tr.at && t < tr.at + P.windowMs);
+      const answered = i >= 0 && pay.responses.find(r => r.i === i && r.t <= t);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (i >= 0 && !answered) { ctx.font = '800 64px "Bricolage Grotesque", sans-serif'; ctx.fillStyle = INK[P.trials[i].ink]; ctx.fillText(P.trials[i].word, W / 2, H / 2 - 20); }
+      const last = pay.responses.filter(r => r.t <= t).slice(-1)[0];
+      if (last && t - last.t < 600) { const tr = P.trials[last.i]; ctx.font = '700 16px Inter, sans-serif'; ctx.fillStyle = last.choice === tr.ink ? v('--human-text') : v('--bot-text'); ctx.fillText('picked ' + last.choice + ' in ' + Math.round(last.t - tr.at) + ' ms', W / 2, H / 2 + 40); }
+      timeline(ctx, W, H, P.trials.map(tr => [tr.at, tr.at + P.windowMs]), pay.responses.map(r => r.t), P.totalMs, t);
+    } else if (fmt === 'reflex') {
+      const hot = P.rounds.some(r => t >= r.at && t < r.at + r.windowMs);
+      ctx.beginPath(); ctx.arc(W / 2, H / 2 - 20, 60, 0, 7); ctx.fillStyle = hot ? v('--brand') : v('--surface-3'); ctx.fill();
+      const clicked = pay.clicks.some(c => c <= t && t - c < 160);
+      if (clicked) { ctx.beginPath(); ctx.arc(W / 2, H / 2 - 20, 70, 0, 7); ctx.strokeStyle = v('--text'); ctx.lineWidth = 3; ctx.stroke(); }
+      timeline(ctx, W, H, P.rounds.map(r => [r.at, r.at + r.windowMs]), pay.clicks, P.totalMs, t);
+    }
+    ctx.fillStyle = v('--surface-3'); ctx.fillRect(0, H - 4, W, 4);
+  }
+  // windows as blocks, responses as ticks, a playhead
+  function timeline(ctx, W, H, wins, ticks, total, t) {
+    const y = H - 34, x = ms => 16 + (W - 32) * ms / total;
+    ctx.fillStyle = v('--surface-3'); ctx.fillRect(16, y, W - 32, 14);
+    ctx.fillStyle = v('--brand'); ctx.globalAlpha = 0.35; wins.forEach(([a, b]) => ctx.fillRect(x(a), y, x(b) - x(a), 14)); ctx.globalAlpha = 1;
+    ctx.fillStyle = v('--text'); ticks.filter(k => k <= t).forEach(k => ctx.fillRect(x(k) - 1, y - 5, 2, 24));
+    ctx.fillStyle = v('--bot'); ctx.fillRect(x(Math.min(t, total)) - 1, y - 8, 2, 30);
+  }
 
-  status.textContent = 'Judging...';
-  [botRes, humRes] = await Promise.all([
-    post('/api/challenge/submit', { session: rb.body.session, samples: botS }),
-    post('/api/challenge/submit', { session: rh.body.session, samples: humS }),
-  ]);
-  verdict(document.getElementById('botout'), botRes, { failHint: 'A script reads the path. It cannot help being perfect.' });
-  verdict(document.getElementById('humout'), humRes, {});
-  status.textContent = 'Both judged by the live server. Run it again, or try the human side yourself.';
-  go.disabled = false;
-});
+  function play(cv, fmt, P, pay) {
+    const total = duration(fmt, P, pay);
+    const speed = total > 13000 ? total / 13000 : 1;
+    const t0 = performance.now();
+    return new Promise(res => {
+      (function frame() {
+        if (!document.body.contains(cv)) return res();
+        const t = (performance.now() - t0) * speed;
+        drawFrame(cv, fmt, P, pay, Math.min(t, total));
+        if (t >= total) return res(speed);
+        requestAnimationFrame(frame);
+      })();
+    });
+  }
+
+  go.addEventListener('click', async () => {
+    const fmt = fmtSel.value, atk = ATTACKERS[fmt].find(a => a[0] === atkSel.value);
+    const status = document.getElementById('status');
+    go.disabled = true;
+    document.getElementById('botout').innerHTML = ''; document.getElementById('humout').innerHTML = '';
+    status.textContent = 'Two challenges started on the server...';
+    const [sb, sh] = await Promise.all([post('/api/challenge/start', { type: fmt }), post('/api/challenge/start', { type: fmt })]);
+    if (sb.status !== 200 || sh.status !== 200) { status.textContent = 'Could not start: ' + ((sb.body && sb.body.reason) || (sh.body && sh.body.reason) || 'error'); go.disabled = false; return; }
+    const botPay = atk[2](sb.body.params), humPay = HUMAN[fmt](sh.body.params);
+    status.textContent = 'Watch both sides...';
+    const [spB, spH] = await Promise.all([play(document.getElementById('botcv'), fmt, sb.body.params, botPay), play(document.getElementById('humcv'), fmt, sh.body.params, humPay)]);
+    if ((spB || 1) > 1 || (spH || 1) > 1) status.textContent = 'Played faster than real time for the slow side. Judging...';
+    else status.textContent = 'Judging...';
+    // the server enforces a real-time floor; make sure it has passed
+    await new Promise(r => setTimeout(r, 300));
+    const [rb, rh] = await Promise.all([post('/api/challenge/submit', { session: sb.body.session, ...botPay }), post('/api/challenge/submit', { session: sh.body.session, ...humPay })]);
+    verdict(document.getElementById('botout'), rb, { failHint: 'Caught on the shape of its response.', next: false, quiet: true });
+    verdict(document.getElementById('humout'), rh, { next: false });
+    status.textContent = 'Both judged by the live server. Try another attacker.';
+    go.disabled = false;
+  });
+})();

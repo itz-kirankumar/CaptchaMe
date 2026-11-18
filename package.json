@@ -9,7 +9,8 @@
     "start": "next start",
     "legacy": "node server.js",
     "test": "node test/e2e.js",
-    "demo:attack": "node demo/bots.js"
+    "demo:attack": "node demo/bots.js",
+    "demo:scrape": "node demo/scraper.js"
   },
   "license": "MIT",
   "engines": {

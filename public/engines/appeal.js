@@ -1,3 +1,5 @@
+(function () {
+  'use strict';
 document.getElementById('actor').value = new URLSearchParams(location.search).get('actor') || '';
 document.getElementById('f').addEventListener('submit', async e => {
   e.preventDefault();
@@ -6,3 +8,4 @@ document.getElementById('f').addEventListener('submit', async e => {
   const b = await r.json();
   document.getElementById('out').innerHTML = r.ok ? `<div class="result pass">${b.reason}</div>` : `<div class="result fail">${b.reason || 'Failed'}</div>`;
 });
+})();

@@ -34,16 +34,38 @@ the cap saved, in dollars.
 
 ## Run it
 
-No dependencies. Node 18 or newer.
+Node 18 or newer.
 
 ```
-npm start          # http://localhost:3000
-npm test           # 27 end-to-end checks: humans pass, bots fail, caps bite
-npm run demo:attack  # attack a running server; watch the dashboard catch each one
+npm install
+npm run build && npm start   # http://localhost:3000
+npm test                     # 93 end-to-end checks: humans pass, bots fail, relays refused, caps bite
+npm run demo:attack          # attack a running server; watch analytics catch each one
+npm run demo:scrape          # a python-requests style crawler against the scraper shield
 ```
 
-Dashboard: http://localhost:3000/dashboard.html (admin key `demo-admin`,
-override with `POP_ADMIN_KEY`).
+Admin key for the console and analytics: `demo-admin` (override with `POP_ADMIN_KEY`).
+
+## The platform
+
+| Page | What it is for |
+|---|---|
+| `/check` | Seven live formats: ring, colour clash, targets (Fitts' law), flash, follow + catch, beat, and Surprise me (server picks) |
+| `/live` | Pick a format and an attacker; watch both sides play out; the real server judges |
+| `/arena` | Classic formats (text, image grid, math, slider, rotate, click-in-order, checkbox, proof of work) and real Turnstile / hCaptcha / reCAPTCHA widgets beside CaptchaMe, with an attacker label and a live scoreboard |
+| `/scraper` | The scraper shield on a demo catalogue: allow, slow, decoy (with a traceable canary), block |
+| `/integrations` | Snippets for HTML, Next.js, Express, Python, edge middleware, cURL and the agent lane |
+| `/analytics` | Developer analytics: traffic, verdicts by format, reasons, shield decisions, attackers |
+| `/dry-run` | 18 scripted scenarios against the live server in about 20 seconds, plus a stage checklist |
+| `/dashboard` | Console: ledger, appeals, event feed |
+
+### Against solver farms
+
+Solver services beat classic captchas two ways: ship the content (image, audio, question) to a model or a worker, or ship the token a worker earned elsewhere. CaptchaMe has no content to ship (a live interaction with sub-second windows, where relay delay shows up as lag) and refuses relayed tokens: every pass is bound to the browser that earned it. Send the visitor's `remoteip`, `user_agent` and `accept_language` to `/api/pass/verify` to check it.
+
+### Real vendor widgets in the arena
+
+Without keys the arena uses each vendor's public test keys, which always pass, and says so on the card. For a real comparison set `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`, `HCAPTCHA_SITE_KEY`/`HCAPTCHA_SECRET_KEY` and `RECAPTCHA_SITE_KEY`/`RECAPTCHA_SECRET_KEY`.
 
 ## Vercel
 

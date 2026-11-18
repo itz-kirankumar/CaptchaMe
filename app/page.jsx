@@ -1,80 +1,102 @@
-import Nav from '../components/Nav';
+import Link from 'next/link';
+import ScriptEngine from '../components/ScriptEngine';
+
+const FORMATS = [
+  ['/check?format=ring', 'Follow the ring', 'Track a moving ring that jumps twice.', 'lag 80-350 ms, re-acquire after each jump', 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 6a3 3 0 1 1 0 6 3 3 0 0 1 0-6z'],
+  ['/check?format=clash', 'Colour clash', 'Pick the ink, not the word.', 'mismatches slow people down; readers pick the word', 'M4 6h16M4 12h10M4 18h16'],
+  ['/check?format=targets', 'Targets', 'Click targets of every size and distance.', "Fitts' law, centre scatter, accelerate-then-brake", 'M12 2v4M12 18v4M2 12h4M18 12h4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+  ['/check?format=reflex', 'Catch the flash', 'Five flashes, sub-second windows.', 'scattered 200-450 ms; timers and agents miss', 'M13 2L4 14h7l-1 8 9-12h-7z'],
+  ['/check?format=pulse', 'Follow + catch', 'Track and react at the same time.', 'dual-task: people wobble, step agents drop the ring', 'M3 12h4l3-8 4 16 3-8h4'],
+  ['/check?format=beat', 'Tap the beat', 'Tap along with twelve pulses.', 'humans anticipate and scatter; scripts hit 0 ms', 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z'],
+  ['/voice', 'Voice path', 'Say four words back. No pointer, no timed visuals.', 'vocal onset timing; built for accessibility', 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3'],
+  ['/agent', 'Agent lane', 'Honest agents sign a nonce and skip the puzzle.', 'Ed25519 key, own fair-share budget', 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4'],
+];
 
 export default function Home() {
   return (<>
-    <Nav links={[['/live', 'Live run'], ['/how', 'How it works'], ['/compare', 'Why captchas fail'], ['/dashboard', 'Dashboard'], ['https://github.com/itz-kirankumar/CaptchaMe', 'GitHub']]} />
-
-    <div className="hero">
-      <span className="badge"><span className="dot"></span>Live demo, judged by a real server</span>
-      <h1>Bots, go ahead. <span className="try">Try.</span></h1>
-      <p className="lede">CaptchaMe checks that a live human is present: how they move, react and speak. Scripts and AI agents fail. Honest agents declare themselves and get a signed lane of their own.</p>
-      <div className="cta-row">
-        <a className="btn" href="/check">Prove you are human</a>
-        <a className="btn ghost" href="/live">Watch bot vs human</a>
+    <section className="hero">
+      <div>
+        <span className="badge"><span className="dot"></span>Live demo, judged by a real server</span>
+        <h1>Bots, go ahead.<br /><em>Try.</em></h1>
+        <p className="lede">Every classic captcha asks &quot;can you solve this?&quot; Solver farms, browser extensions and AI agents now answer yes, for under a cent. CaptchaMe asks what only a live body can answer, binds the pass to the browser that earned it, and caps what any one actor can take.</p>
+        <div className="cta-row">
+          <Link className="btn" href="/check">Prove you&apos;re human</Link>
+          <Link className="btn ghost" href="/arena">Open the arena</Link>
+        </div>
       </div>
-    </div>
+      <div className="hero-visual">
+        <canvas id="herocv" width="640" height="480" aria-label="A human cursor trails the moving ring with natural lag while a bot cursor sits exactly on it"></canvas>
+        <div className="cap"><span><span className="chip human">human</span> 180 ms behind, always correcting</span><span><span className="chip bot">bot</span> 0 ms, perfect, caught</span></div>
+      </div>
+    </section>
 
-    <div className="lanes">
-      <a className="lane" href="/check">
-        <div className="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" strokeWidth="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#2ee6a8"/></svg></div>
-        <b>I am a person</b>
-        <span>Follow a moving ring, tap a beat, catch a flash. Seconds long. Scored on how you move, not how fast.</span>
-      </a>
-      <a className="lane" href="/voice">
-        <div className="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" strokeWidth="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
-        <b>I am a person, voice path</b>
-        <span>No pointer, no timed visuals. Speak four words back at your own pace. Built for accessibility first.</span>
-      </a>
-      <a className="lane" href="/agent">
-        <div className="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" strokeWidth="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
-        <b>I am an AI agent</b>
-        <span>Declare yourself with a signed key. No puzzle, no disguise. Your own fair budget instead of a wall.</span>
-      </a>
+    <div className="statband" id="statband">
+      <div><b id="st-checks">-</b><span>live checks judged</span></div>
+      <div><b id="st-humans">-</b><span>humans verified</span></div>
+      <div><b id="st-bots">-</b><span>bots and relays caught</span></div>
+      <div><b id="st-agents">-</b><span>agents declared</span></div>
+      <div><b id="st-scrape">-</b><span>scraper requests stopped</span></div>
     </div>
 
     <section className="block">
-      <p className="kicker">How it works</p>
-      <h2 className="section">Not a puzzle. A presence check.</h2>
-      <p className="section-sub">Puzzles get solved and sold. CaptchaMe watches for the signals only a body produces, then limits the blast radius with a fair-share ledger.</p>
-      <div className="steps">
-        <div className="step"><p className="n">01</p><b>A fresh challenge every time</b><p>Randomized per session, answered once, gone in 90 seconds. Nothing to replay, record or pre-train on.</p></div>
-        <div className="step"><p className="n">02</p><b>Scored on the shape of you</b><p>Reaction lag, correction patterns, rhythm drift, vocal onset. A script can fake any one signal. It cannot fake all of them, live, for cheap.</p></div>
-        <div className="step"><p className="n">03</p><b>A verdict with reasons</b><p>HUMAN or BOT, with the evidence shown. Then a dollar cap per actor, so even a beaten check never becomes a free pass.</p></div>
+      <span className="kicker">Why captchas fell</span>
+      <h2 className="section">Every puzzle is now a paid API call</h2>
+      <p className="section-sub">Solver services list around fifty captcha types, from reCAPTCHA and Turnstile to sliders, rotations and audio, at roughly $0.50 to $3 per thousand, in 1 to 40 seconds: AI first, human workers as backup.</p>
+      <div className="breakers">
+        <div className="breaker"><span className="x">SHIP THE CONTENT</span><b>Image, text, audio</b><span>The puzzle is uploaded to a model or a worker anywhere in the world, and the answer comes back in seconds.</span></div>
+        <div className="breaker"><span className="x">SHIP THE TOKEN</span><b>Widget tokens</b><span>A worker solves the widget on their own machine and hands over the pass token. The bot pastes it in.</span></div>
+        <div className="breaker"><span className="x">ONE-CLICK EXTENSIONS</span><b>Buster and friends</b><span>Speech-to-text beats the audio fallback for free. Paid extensions solve in the background.</span></div>
+        <div className="breaker"><span className="x">AI AGENTS</span><b>See and click</b><span>Browser agents look at the puzzle and click, like a person. Proof-of-work just costs them a second.</span></div>
+      </div>
+      <p className="note"><Link href="/arena">Watch them beat the classic formats live in the arena, then try the same tools on CaptchaMe.</Link></p>
+    </section>
+
+    <section className="block">
+      <span className="kicker">The answer</span>
+      <h2 className="section">Nothing to ship, nothing to replay, nothing worth stealing</h2>
+      <div className="grid g4">
+        <div className="step"><p className="n">01 · LIVE</p><b>Nothing to ship</b><p>The challenge is a live interaction with sub-second windows. A relayed worker&apos;s delay shows up as lag, and a screenshot is useless.</p></div>
+        <div className="step"><p className="n">02 · BOUND</p><b>Nothing to replay</b><p>Every challenge answers once in 90 seconds. Every pass is bound to the browser that earned it, so a relayed token is refused.</p></div>
+        <div className="step"><p className="n">03 · SHAPE</p><b>Scored on how, not what</b><p>Reaction lag, corrections, Fitts&apos; law, interference, rhythm. A script fakes one signal; faking all of them live is expensive.</p></div>
+        <div className="step"><p className="n">04 · CAPPED</p><b>Nothing worth stealing</b><p>Even a beaten check buys one person&apos;s fair share. The ledger caps every actor in dollars, with a plain reason and a human appeal.</p></div>
+      </div>
+    </section>
+
+    <section className="block">
+      <span className="kicker">Formats</span>
+      <h2 className="section">Eight ways through one door</h2>
+      <p className="section-sub">Rotated per session and picked by the server in surprise mode. Each line in grey is the signal the server checks.</p>
+      <div className="formats">
+        {FORMATS.map(([href, name, desc, sig, d]) => (
+          <Link className="format" href={href} key={name}>
+            <span className="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg></span>
+            <b>{name}</b><p>{desc}</p><span className="sig">{sig}</span>
+          </Link>
+        ))}
       </div>
     </section>
 
     <section className="block">
-      <p className="kicker">For builders</p>
-      <h2 className="section">Three lines to protect a form</h2>
-      <p className="section-sub">Drop the widget where your captcha sits today. Verify the pass token on your server before you accept the action.</p>
-      <div className="codeblock"><span className="c">{'<!-- on your page -->'}</span>{'\n'}
-{'<script src='}<span className="g">"https://captchame.vercel.app/widget.js"</span>{'></script>'}{'\n'}
-{'<div data-captchame='}<span className="g">"your-site-key"</span>{'></div>'}{'\n\n'}
-<span className="c"># on your server</span>{'\n'}
-POST <span className="b">/api/pass/verify</span>{'  { pass_token } '}<span className="c">{'# -> { ok: true, actor }'}</span></div>
-      <p className="note">The hosted demo API is live today: <code>POST /api/challenge/start</code> then <code>POST /api/challenge/submit</code>, verified with <code>POST /api/pass/verify</code>. The one-tag widget is live on the <a href="/demo.html">demo storefront</a>.</p>
-    </section>
-
-    <section className="block">
-      <div className="stats">
-        <div className="stat"><p className="v">12</p><p className="l">attack classes stopped live: scripts, agents, replays, playback, scrapers</p></div>
-        <div className="stat"><p className="v">~7s</p><p className="l">for a human to pass. Near-zero friction, no puzzles</p></div>
-        <div className="stat"><p className="v">45</p><p className="l">automated end-to-end checks on every deploy</p></div>
-        <div className="stat"><p className="v">$0.50</p><p className="l">default fair-share cap per actor, with a human appeal</p></div>
+      <span className="kicker">Beyond the door</span>
+      <h2 className="section">One layer for every kind of visitor</h2>
+      <div className="lanes">
+        <Link className="lane" href="/check"><span className="chip human">person</span><b>Let people straight in</b><span className="d">A few seconds, no puzzles, scored on how a body moves. The voice path covers people who cannot use a pointer.</span></Link>
+        <Link className="lane" href="/agent"><span className="chip agent">agent</span><b>Give honest agents a lane</b><span className="d">Agents sign a nonce with their key, skip the checks and get their own capped budget instead of a wall.</span></Link>
+        <Link className="lane" href="/scraper"><span className="chip bot">scraper</span><b>Slow, decoy or block scrapers</b><span className="d">Account-free visitors are judged by how they request pages. Scrapers get delays, traceable decoy data or a block.</span></Link>
       </div>
     </section>
 
-    <a className="cta-big" href="/live">Watch a bot try and fail, live
-      <small>Two cursors, one judge: the real CaptchaMe server. Thirty seconds, no setup.</small>
-    </a>
+    <section className="block">
+      <span className="kicker">For builders</span>
+      <h2 className="section">Protect a form in three lines</h2>
+      <div className="codeblock"><span className="c">{'<!-- your page -->'}</span>{'\n'}{'<script src='}<span className="g">&quot;https://captchame.vercel.app/widget.js&quot;</span>{' data-site='}<span className="g">&quot;your-site&quot;</span>{'></script>'}{'\n\n'}<span className="c"># your server: check the pass against the visitor&apos;s browser</span>{'\n'}POST <span className="b">/api/pass/verify</span>{'  { pass, remoteip, user_agent }  '}<span className="c">{'# -> { ok, subject, browser_checked }'}</span></div>
+      <p className="note"><Link href="/integrations">Every integration, endpoint and SDK snippet</Link></p>
+    </section>
 
-    <div className="footer">
-      <span>CaptchaMe · built at Road to YC, Nov 2026</span>
-      <span className="spacer"></span>
-      <a href="/how">What happens after the door</a>
-      <a href="/compare">Why existing captchas fail</a>
-      <a href="/appeal">Appeal a cap</a>
-      <a href="https://github.com/itz-kirankumar/CaptchaMe">GitHub</a>
-    </div>
+    <Link className="cta-big" href="/live">
+      <span><b>Watch a bot try and fail, live</b><small>Pick a format and an attacker. The real server judges both sides.</small></span>
+      <span className="go">Open live run</span>
+    </Link>
+    <ScriptEngine srcs={['/engines/home.js']} />
   </>);
 }
