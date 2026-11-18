@@ -1,18 +1,92 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CaptchaMe</title><link rel="stylesheet" href="/style.css"></head><body><main>
-<h1>CaptchaMe</h1>
-<p class="tagline">Bots, go ahead. Try.</p>
-<p class="sub">A door that only live humans walk through, a signed lane for honest AI agents, and a fair-share ledger that caps what any one actor can take. Bots, scrapers and scripts do not pass.</p>
-<div class="lanes">
-  <a class="lane" href="/check.html"><b>I am a person</b><span>Follow a moving ring or tap to a beat. A few seconds, scored on how you move, not how fast.</span></a>
-  <a class="lane" href="/voice.html"><b>I am a person, voice path</b><span>Built for people who cannot use a pointer or a timed visual test. Speak four words back at your own pace.</span></a>
-  <a class="lane" href="/agent.html"><b>I am an AI agent</b><span>Declare yourself with a signed key. No puzzle. You get your own fair budget instead of a wall.</span></a>
+<title>CaptchaMe - Bots, go ahead. Try.</title>
+<meta name="description" content="CaptchaMe verifies a live human is present. Bots, scripts and solvers fail; honest AI agents get a signed lane of their own.">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"></head><body><main>
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.svg" width="26" height="26" alt="">CaptchaMe</a>
+  <div class="links">
+    <a href="/live.html">Live run</a>
+    <a href="/how.html">How it works</a>
+    <a href="/compare.html">Why captchas fail</a>
+    <a href="/dashboard.html">Dashboard</a>
+    <a href="https://github.com/itz-kirankumar/CaptchaMe">GitHub</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <span class="badge"><span class="dot"></span>Live demo, judged by a real server</span>
+  <h1>Bots, go ahead. <span class="try">Try.</span></h1>
+  <p class="lede">CaptchaMe checks that a live human is present: how they move, react and speak. Scripts and AI agents fail. Honest agents declare themselves and get a signed lane of their own.</p>
+  <div class="cta-row">
+    <a class="btn" href="/check.html">Prove you are human</a>
+    <a class="btn ghost" href="/live.html">Watch bot vs human</a>
+  </div>
 </div>
-<a class="cta" href="/live.html">Watch a live run: bot vs human, judged in real time</a>
-<div class="footerlinks">
+
+<div class="lanes">
+  <a class="lane" href="/check.html">
+    <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="#2ee6a8"/></svg></div>
+    <b>I am a person</b>
+    <span>Follow a moving ring, tap a beat, catch a flash. Seconds long. Scored on how you move, not how fast.</span>
+  </a>
+  <a class="lane" href="/voice.html">
+    <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></div>
+    <b>I am a person, voice path</b>
+    <span>No pointer, no timed visuals. Speak four words back at your own pace. Built for accessibility first.</span>
+  </a>
+  <a class="lane" href="/agent.html">
+    <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ee6a8" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+    <b>I am an AI agent</b>
+    <span>Declare yourself with a signed key. No puzzle, no disguise. Your own fair budget instead of a wall.</span>
+  </a>
+</div>
+
+<section class="block">
+  <p class="kicker">How it works</p>
+  <h2 class="section">Not a puzzle. A presence check.</h2>
+  <p class="section-sub">Puzzles get solved and sold. CaptchaMe watches for the signals only a body produces, then limits the blast radius with a fair-share ledger.</p>
+  <div class="steps">
+    <div class="step"><p class="n">01</p><b>A fresh challenge every time</b><p>Randomized per session, answered once, gone in 90 seconds. Nothing to replay, record or pre-train on.</p></div>
+    <div class="step"><p class="n">02</p><b>Scored on the shape of you</b><p>Reaction lag, correction patterns, rhythm drift, vocal onset. A script can fake any one signal. It cannot fake all of them, live, for cheap.</p></div>
+    <div class="step"><p class="n">03</p><b>A verdict with reasons</b><p>HUMAN or BOT, with the evidence shown. Then a dollar cap per actor, so even a beaten check never becomes a free pass.</p></div>
+  </div>
+</section>
+
+<section class="block">
+  <p class="kicker">For builders</p>
+  <h2 class="section">Three lines to protect a form</h2>
+  <p class="section-sub">Drop the widget where your captcha sits today. Verify the pass token on your server before you accept the action.</p>
+  <div class="codeblock"><span class="c">&lt;!-- on your page --&gt;</span>
+&lt;script src=<span class="g">"https://captchame.vercel.app/widget.js"</span>&gt;&lt;/script&gt;
+&lt;div data-captchame=<span class="g">"your-site-key"</span>&gt;&lt;/div&gt;
+
+<span class="c"># on your server</span>
+POST <span class="b">/api/challenge/verify</span>  { pass_token } <span class="c"># -> { ok: true, actor }</span></div>
+  <p class="note">The hosted demo API is live today: <code>POST /api/challenge/start</code> then <code>POST /api/challenge/submit</code>. The one-tag widget ships as the next milestone.</p>
+</section>
+
+<section class="block">
+  <div class="stats">
+    <div class="stat"><p class="v">12</p><p class="l">attack classes stopped live: scripts, agents, replays, playback, scrapers</p></div>
+    <div class="stat"><p class="v">~7s</p><p class="l">for a human to pass. Near-zero friction, no puzzles</p></div>
+    <div class="stat"><p class="v">45</p><p class="l">automated end-to-end checks on every deploy</p></div>
+    <div class="stat"><p class="v">$0.50</p><p class="l">default fair-share cap per actor, with a human appeal</p></div>
+  </div>
+</section>
+
+<a class="cta-big" href="/live.html">Watch a bot try and fail, live
+  <small>Two cursors, one judge: the real CaptchaMe server. Thirty seconds, no setup.</small>
+</a>
+
+<div class="footer">
+  <span>CaptchaMe · built at Road to YC, Nov 2026</span>
+  <span class="spacer"></span>
   <a href="/how.html">What happens after the door</a>
-  <a href="/dashboard.html">Live dashboard</a>
   <a href="/compare.html">Why existing captchas fail</a>
   <a href="/appeal.html">Appeal a cap</a>
+  <a href="https://github.com/itz-kirankumar/CaptchaMe">GitHub</a>
 </div>
 </main></body></html>

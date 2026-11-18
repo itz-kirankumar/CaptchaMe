@@ -1,11 +1,31 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard</title><link rel="stylesheet" href="/style.css"></head><body><main>
-<h1>Live dashboard</h1>
-<p class="sub">Every check, call, block and appeal, as it happens.</p>
-<div class="card" id="summary">Loading...</div>
+<title>Live dashboard - CaptchaMe</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"></head><body><main>
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.svg" width="26" height="26" alt="">CaptchaMe</a>
+  <div class="links">
+    <a href="/check.html">Try it</a>
+    <a href="/live.html">Live run</a>
+    <a href="/agent.html">Agents</a>
+  </div>
+</nav>
+
+<h1 class="page">Live dashboard</h1>
+<p class="sub">Every check, call, block and appeal, as it happens. This is what a site operator watches.</p>
+
+<div class="statgrid" id="summary">
+  <div class="stat"><div class="n" id="s-saved">-</div><div class="l">compute protected</div></div>
+  <div class="stat"><div class="n" id="s-blocked">-</div><div class="l">over-cap calls refused</div></div>
+  <div class="stat"><div class="n" id="s-actors">-</div><div class="l">actors</div></div>
+  <div class="stat"><div class="n" id="s-appeals">-</div><div class="l">open appeals</div></div>
+</div>
+
 <div class="card">
   <h2 style="margin-top:0">Fair-share ledger</h2>
-  <table><thead><tr><th>Actor</th><th>Kind</th><th>Spent</th><th>Allowance</th><th>Left</th><th>Blocked</th></tr></thead><tbody id="actors"></tbody></table>
+  <table><thead><tr><th>Actor</th><th>Kind</th><th>Spent</th><th>Allowance</th><th>Left</th><th>Blocked</th></tr></thead><tbody id="actors"><tr><td colspan="6" class="note">Loading...</td></tr></tbody></table>
 </div>
 <div class="card">
   <h2 style="margin-top:0">Appeals</h2>
@@ -15,7 +35,6 @@
   <h2 style="margin-top:0">Event feed</h2>
   <div id="feed" class="feed"></div>
 </div>
-<p class="note"><a style="color:var(--accent)" href="/">Home</a></p>
 <script>
 const KEY = new URLSearchParams(location.search).get('key') || 'demo-admin';
 let since = 0;
@@ -40,16 +59,18 @@ async function pull() {
     }
     if (ac.actors) {
       document.getElementById('actors').innerHTML = ac.actors.map(a =>
-        `<tr><td><code>${a.id}</code></td><td>${a.kind}</td><td>$${a.spent.toFixed(2)}</td><td>$${a.granted.toFixed(2)}</td><td>$${a.remaining.toFixed(2)}</td><td>${a.blocked}</td></tr>`).join('');
+        `<tr><td><code>${a.id}</code></td><td>${a.kind}</td><td>$${a.spent.toFixed(2)}</td><td>$${a.granted.toFixed(2)}</td><td>$${a.remaining.toFixed(2)}</td><td>${a.blocked}</td></tr>`).join('') || '<tr><td colspan="6" class="note">No actors yet.</td></tr>';
       const s = ac.summary;
-      document.getElementById('summary').innerHTML =
-        `<b>$${s.estimatedSaved.toFixed(2)}</b> of shared compute protected &middot; ${s.blockedCalls} over-cap calls refused &middot; ${s.actors} actors &middot; ${s.openAppeals} open appeals`;
+      document.getElementById('s-saved').textContent = '$' + s.estimatedSaved.toFixed(2);
+      document.getElementById('s-blocked').textContent = s.blockedCalls;
+      document.getElementById('s-actors').textContent = s.actors;
+      document.getElementById('s-appeals').textContent = s.openAppeals;
     }
     if (ap.appeals) {
       document.getElementById('appeals').innerHTML = ap.appeals.length ? ap.appeals.map(a =>
         `<div><span class="tag appeal">#${a.id} ${a.status}</span><code>${a.actorId}</code> - ${a.message.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}` +
         (a.status === 'open' ? ` <button style="padding:4px 12px;font-size:12px" onclick="resolveAppeal(${a.id},'approve')">Approve +$1</button> <button class="ghost" style="padding:4px 12px;font-size:12px" onclick="resolveAppeal(${a.id},'deny')">Deny</button>` : '') +
-        `</div>`).join('') : 'No appeals yet.';
+        `</div>`).join('') : '<div class="note">No appeals yet.</div>';
     }
   } catch (e) { /* keep polling */ }
   setTimeout(pull, 1200);

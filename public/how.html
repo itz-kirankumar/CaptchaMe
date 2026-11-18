@@ -1,13 +1,51 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>After the door - CaptchaMe</title><link rel="stylesheet" href="/style.css"></head><body><main>
-<h1>What happens after the door</h1>
-<p class="sub">Passing the check is the start, not the end. Every actor gets a fair share, in dollars, with a plain reason and an appeal.</p>
+<title>How it works - CaptchaMe</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"></head><body><main>
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.svg" width="26" height="26" alt="">CaptchaMe</a>
+  <div class="links">
+    <a href="/check.html">Try it</a>
+    <a href="/compare.html">Compare</a>
+    <a href="/dashboard.html">Dashboard</a>
+  </div>
+</nav>
+
+<h1 class="page">Three doors, one honest system</h1>
+<p class="sub">CaptchaMe does not fight a permanent arms race. It reads simple physics of human behavior, gives honest agents a front door, and puts a hard ledger in front of everything that pretends.</p>
+
 <div class="card">
-<p>Every actor, human or agent, gets a dollar allowance on the demo API behind this site. When it runs out, the block comes with a plain reason and an appeal a human reviews. Nobody is silently refused.</p>
-<p class="note"><a style="color:var(--accent)" href="/use.html">Try the protected API</a> &middot; <a style="color:var(--accent)" href="/appeal.html">Appeal a cap</a> &middot; <a style="color:var(--accent)" href="/dashboard.html">Live dashboard</a> &middot; <a style="color:var(--accent)" href="/compare.html">Why existing captchas fail</a></p>
+  <h2>Door 1: Proof of presence</h2>
+  <p>Four small checks, each under 10 seconds:</p>
+  <ul class="note">
+    <li><strong>Follow the ring</strong>: track a moving ring for 7 seconds. We measure speed, jitter and correction, not perfection.</li>
+    <li><strong>Tap the beat</strong>: tap with 12 pulses. Human rhythm error is 30-100ms and drifts. Script timing is metronomic.</li>
+    <li><strong>Catch the flash</strong>: click 5 random flashes. Humans need 150-300ms. Sub-100ms "reflexes" are code.</li>
+    <li><strong>Follow + catch</strong>: both at once. Split attention costs people accuracy; automation it does not.</li>
+  </ul>
 </div>
+
 <div class="card">
-<p class="note" style="margin:0">Honest scope: no single check proves humanity forever. These checks raise the cost for bots and AI agents today, voice keeps the door open for disabled people, and the ledger limits the damage when any check is beaten.</p>
+  <h2>Why the physics holds up</h2>
+  <p>The server publishes the challenge path up front, so no remote solver farm has any sight advantage. A follower script then has two choices: move perfectly and fail physics, or synthesize human sloppiness.</p>
+  <p class="note">Replayed recordings of real humans carry frozen timing; fresh noise passes a basic check today but still has to be synthesized correctly for every new challenge on the fly. And every attempt feeds the fair-share ledger below, so better mimicry buys attackers tries, not scale.</p>
 </div>
-<p class="note"><a style="color:var(--accent)" href="/">Back to CaptchaMe</a></p>
+
+<div class="card">
+  <h2>Door 2: Voice presence</h2>
+  <p>Four spoken words, say each back. Timing is measured from the live microphone, so a recording of a voice played through a speaker pipeline carries playback characteristics that look different from a live throat. Built for accessibility: people who cannot do pointer challenges, and a second lane when a pointer check feels wrong about a real person.</p>
+</div>
+
+<div class="card">
+  <h2>Door 3: The declare lane</h2>
+  <p>An agent that says what it is gets a signed pass and a fair share: 10% of capacity, shared across all declared agents. When the share is exhausted, agents wait with a precise time, not a block. Sites can also turn agents off entirely.</p>
+  <p class="note">This is the part nobody else does: we treat agents as a customer class with rights, not only as a threat class to crush.</p>
+</div>
+
+<div class="card">
+  <h2>The ledger behind every door</h2>
+  <p>Every attempt, from every identity and fingerprint, feeds one ledger. A single identity gets at most 3 tokens an hour, 10 a day; the shared agent pool caps at 20 an hour, 60 a day. Verification makes a wrong try expensive in the one currency attackers cannot print: time.</p>
+</div>
 </main></body></html>

@@ -1,21 +1,37 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Live run: bot vs human - CaptchaMe</title><link rel="stylesheet" href="/style.css"></head><body><main>
-<h1>Live run: bot vs human</h1>
-<p class="sub">Two cursors follow the same moving ring at the same time. Left: a script that read the published path and tracks it perfectly. Right: a hand with reaction lag, wander and constant small corrections. Both cursors are simulated here so you can watch; the judging is the real CaptchaMe server, live. Then <a style="color:var(--accent)" href="/check.html">try the human side yourself</a>.</p>
-<p><button id="go">Run it live</button> <span class="note" id="status"></span></p>
+<title>Live run: bot vs human - CaptchaMe</title>
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"></head><body><main>
+<nav class="nav">
+  <a class="brand" href="/"><img src="/logo.svg" width="26" height="26" alt="">CaptchaMe</a>
+  <div class="links">
+    <a href="/check.html">Try it yourself</a>
+    <a href="/how.html">How it works</a>
+    <a href="/dashboard.html">Dashboard</a>
+  </div>
+</nav>
+
+<h1 class="page">Bot vs human, judged live</h1>
+<p class="sub">Two cursors follow the same kind of moving ring at the same time. On the left, a script that read the published path and tracks it perfectly. On the right, a hand with reaction lag, wander and constant small corrections. Both cursors are simulated here so you can watch; the judging is the real CaptchaMe server, live. Then <a href="/check.html">try the human side yourself</a>.</p>
+
+<p style="margin:0 0 18px"><button id="go">Run it live</button> <span class="note" id="status"></span></p>
+
 <div class="livegrid">
-  <div class="card">
-    <h2 style="margin-top:0">Script bot</h2>
+  <div class="livecard">
+    <h3><span class="chip bot">script bot</span> Perfect path replay</h3>
     <canvas id="botcv" width="400" height="260"></canvas>
     <div id="botout"></div>
   </div>
-  <div class="card">
-    <h2 style="margin-top:0">Human</h2>
+  <div class="livecard">
+    <h3><span class="chip human">human</span> Messy, lagging, alive</h3>
     <canvas id="humcv" width="400" height="260"></canvas>
     <div id="humout"></div>
   </div>
 </div>
-<p class="note"><a style="color:var(--accent)" href="/">Back</a> &middot; The dashboard records both verdicts: <a style="color:var(--accent)" href="/dashboard.html">open it on the projector</a>.</p>
+
+<p class="note">Every verdict lands on the <a href="/dashboard.html">live dashboard</a>. Open it on a second screen during a demo and watch attacks get stamped in real time.</p>
 <script src="/verdict.js"></script>
 <script src="/live.js"></script>
 </main></body></html>
