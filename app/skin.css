@@ -322,3 +322,7 @@ body > footer, .footer { z-index: 0; }
 .rn-fail .rn-an.flat { margin-top: 0; animation: none; }
 .rn-fail-act { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 .rn-sheet > .rn-fail { position: absolute; inset: 0; z-index: 5; }
+
+.rn-go { height: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin: 0 0 4px; }
+.rn-go i { display: block; height: 100%; background: var(--brand); transform-origin: left; animation: rnGo 2.6s linear both; }
+@keyframes rnGo { from { transform: scaleX(0); } to { transform: scaleX(1); } }

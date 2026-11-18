@@ -1156,6 +1156,18 @@ route('GET', '/api/layer2/subject/:id', async (req, res, params) => {
   if (!d) return send(res, 404, { error: 'not_found', reason: 'No identity with that id (it may have been merged into another one).' });
   send(res, 200, d);
 });
+// Local only: the page asks for the admin key the server printed in its log, so the person who started the
+// server does not have to copy it. Refused on Vercel and for any request that came through a proxy.
+route('GET', '/api/demo/key', async (req, res) => {
+  const ra = String((req.socket && req.socket.remoteAddress) || '');
+  const lo = (x) => /^(::1|127\.|::ffff:127\.)/.test(String(x).trim());
+  const host = String(req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  const fwd = String(req.headers['x-forwarded-for'] || '').split(',').filter(Boolean);
+  // loopback connection, every forwarded address is loopback, and the page was opened as localhost
+  const local = lo(ra) && fwd.every(lo) && ['localhost', '127.0.0.1', '::1'].includes(host);
+  if (process.env.VERCEL || !local) return send(res, 404, { error: 'not_found' });
+  send(res, 200, { key: ADMIN_KEY });
+});
 // Demo only: the analysis behind a built-in attacker's run, so the home page can show it without an admin key.
 route('GET', '/api/live/analysis/:id', async (req, res, params) => {
   const d = layer2.detail(params.id);

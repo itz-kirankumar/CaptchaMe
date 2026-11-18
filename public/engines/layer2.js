@@ -77,5 +77,7 @@
   async function tick() {
     try { render(await get('/api/layer2/overview')); if (open) showDetail(open).catch(() => { open = null; $('l2detail').hidden = true; }); } catch { /* gate shown by CMAdmin, or server restarting */ }
   }
+  const want = new URLSearchParams(location.search).get('open');
+  if (want) setTimeout(() => showDetail(want).then(() => { const b = $('l2detail'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' }); }).catch(() => {}), 700);
   tick(); setInterval(() => { if (!document.hidden) tick(); }, 1500);
 })();

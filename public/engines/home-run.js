@@ -157,7 +157,7 @@
       (l2 ? '<div class="rn-who"><b>' + esc(l2.cls.replace(/_/g, ' ')) + '</b><span>' + Math.round(l2.conf * 100) + '% sure &middot; ' + l2.identities.ips + ' address' + (l2.identities.ips === 1 ? '' : 'es') + ' &middot; ' + l2.identities.uas + ' browser name' + (l2.identities.uas === 1 ? '' : 's') + '</span></div>' : '') +
       '<div class="rn-act"><button class="btn ghost" id="rnAgain">Run another</button><a class="btn accent" href="/layer2">Layer 2 analysis</a></div></div>' + where;
     verdictEl.classList.add('on');
-    if (l2 && l2.subject) showAnalytics(l2.subject).then(el => { if (el && (bad || warn)) setTimeout(() => openFail(el, where, my, bad), 1500); });
+    if (l2 && l2.subject) { if (bad || warn) setTimeout(() => openFail(l2.subject, where, my, bad), 1500); else showAnalytics(l2.subject); }
     $('rnAgain').onclick = () => { close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
@@ -176,22 +176,19 @@
     term.appendChild(el); toBottom();
     return el;
   }
-  // the failed-run screen: shown over the sheet, with the analysis
-  function openFail(analysis, where, my, blocked) {
+  // the failed-run screen: a moment of Uh-oh, then straight to the analysis page with this identity open
+  function openFail(id, where, my, blocked) {
     if (run !== my) return;
     const sheet = modal.querySelector('.rn-sheet');
     const f = document.createElement('div'); f.className = 'rn-fail';
-    const a = analysis.cloneNode(true); a.classList.add('flat');
-    const h = a.querySelector('.rn-h'); if (h) h.remove();
-    const btn = a.querySelector('a.btn'); if (btn) btn.remove();
     f.innerHTML = '<div class="rn-oops" data-t="UH-OH">UH-OH</div>' +
-      '<p class="rn-oopsp">' + (blocked ? 'That request failed.' : 'That request was held back.') + ' Here is the analysis.</p>' +
-      where + '<div class="rn-fail-an"></div>' +
-      '<div class="rn-fail-act"><button class="btn ghost" id="rnRaw">See the raw run</button><button class="btn ghost" id="rnAgain2">Run another</button><a class="btn accent" href="/layer2">Full layer 2 analysis</a></div>';
-    f.querySelector('.rn-fail-an').appendChild(a);
+      '<p class="rn-oopsp">' + (blocked ? 'That request failed.' : 'That request was held back.') + ' Opening the analysis...</p>' + where +
+      '<div class="rn-go"><i></i></div>' +
+      '<div class="rn-fail-act"><button class="btn ghost" id="rnRaw">Stay on the raw run</button><button class="btn ghost" id="rnAgain2">Run another</button><a class="btn accent" href="/layer2?open=' + encodeURIComponent(id) + '">Open the analysis now</a></div>';
     sheet.appendChild(f);
-    f.querySelector('#rnRaw').onclick = () => f.remove();
-    f.querySelector('#rnAgain2').onclick = () => { close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    const t = setTimeout(() => { location.href = '/layer2?open=' + encodeURIComponent(id); }, reduce ? 800 : 2600);
+    f.querySelector('#rnRaw').onclick = () => { clearTimeout(t); f.remove(); };
+    f.querySelector('#rnAgain2').onclick = () => { clearTimeout(t); close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
   function feed(e) {

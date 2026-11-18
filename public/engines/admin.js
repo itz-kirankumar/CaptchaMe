@@ -25,12 +25,13 @@
     main.prepend(box);
   }
   // opts.gate === false: fail quietly instead of showing the key form
+  async function autoKey() { try { const r = await fetch('/api/demo/key', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); if (j.key) { set(j.key); return j.key; } } } catch { /* not on the machine that runs the server */ } return ''; }
   async function api(url, opts = {}) {
     const { gate: useGate = true, ...rest } = opts;
-    const k = get();
+    let k = get() || await autoKey();
     if (!k) { if (useGate) gate(false); throw new Error('no admin key'); }
     const r = await fetch(url, { cache: 'no-store', ...rest, headers: { ...(rest.headers || {}), 'X-Admin-Key': k } });
-    if (r.status === 403) { del(); if (useGate) gate(true); throw new Error('forbidden'); }
+    if (r.status === 403) { del(); const k2 = await autoKey(); if (k2 && k2 !== k) return api(url, opts); if (useGate) gate(true); throw new Error('forbidden'); }
     return r;
   }
   window.CMAdmin = { api, key: get, gate };
