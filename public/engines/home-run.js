@@ -72,7 +72,7 @@
   let run = null;
 
   function buildHeader() {
-    stepsEl.innerHTML = '<span class="th-logo"><svg width="22" height="22" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="#5b3cf5" stroke-opacity=".3" stroke-width="3"/><path d="M12.24 5.66A11 11 0 0 1 23.78 8.22" fill="none" stroke="#5b3cf5" stroke-width="3" stroke-linecap="round"/><circle cx="23.78" cy="8.22" r="3.4" fill="#5b3cf5"/></svg></span>' +
+    stepsEl.innerHTML = '<span class="th-logo"><svg width="22" height="22" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="3"/><path d="M12.24 5.66A11 11 0 0 1 23.78 8.22" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="23.78" cy="8.22" r="3.4" fill="currentColor"/></svg></span>' +
       STEPS.map(([, t], i) => '<span class="th-st" data-i="' + i + '"><button class="th-dot" data-go="' + i + '" aria-label="Step ' + (i + 1) + ': ' + esc(t) + '"><span class="n">' + (i + 1) + '</span><span class="lb">' + esc(t) + '</span></button></span>' + (i < STEPS.length - 1 ? '<span class="th-line"></span>' : '')).join('') +
       '<button class="th-x" id="thClose" aria-label="Close">&times;</button>';
     progEl.innerHTML = STEPS.map(() => '<i></i>').join('');
