@@ -34,6 +34,7 @@ export default function Page() {
       <input id="attackerInput" placeholder="custom label" aria-label="Custom attacker label" maxLength={40} />
       <button className="sm ghost" id="attackerSet">Set</button>
       <span className="spacer"></span>
+      <button className="sm" id="refreshAllCaptchas" title="Load a fresh puzzle for every classic format and restart the CaptchaMe widget">Refresh all captchas</button>
       <span className="note" style={{ margin: 0 }}>now: <b id="attackerNow" className="mono">unlabelled</b></span>
     </div>
 
@@ -45,7 +46,7 @@ export default function Page() {
 
         <div className="cap" id="vendorCard">
           <div className="cap-head"><b>Real vendor widgets</b><span className="spacer"></span><button className="sm ghost" id="loadVendors">Load Turnstile, hCaptcha, reCAPTCHA</button></div>
-          <p className="note" style={{ marginTop: 0 }}>Loaded only when you press the button. Without your own keys, each vendor&apos;s public test key is used, and those always pass; the card says so. Add <code>TURNSTILE_SITE_KEY</code>, <code>HCAPTCHA_SITE_KEY</code>, <code>RECAPTCHA_SITE_KEY</code> and their secrets for a real fight.</p>
+          <p className="note" style={{ marginTop: 0 }}>Loaded only when you press the button, and only with this server&apos;s own keys: <code>TURNSTILE_SITE_KEY</code>, <code>HCAPTCHA_SITE_KEY</code>, <code>RECAPTCHA_SITE_KEY</code> and their secrets. A vendor without keys shows as not configured; there is no always-pass test mode.</p>
           <div id="vendorList"></div>
         </div>
       </div>
@@ -62,7 +63,7 @@ export default function Page() {
       <div className="row" style={{ marginBottom: 14 }}>
         <div><span className="kicker">Scoreboard</span><h2 className="section" style={{ marginBottom: 0 }}>Who got through what</h2></div>
         <span className="spacer"></span>
-        <button className="sm danger" id="resetScores">Reset demo data</button>
+        <button className="sm danger" id="resetScores">Reset scoreboard (admin)</button>
       </div>
       <div className="card"><div className="tablewrap"><table className="matrix" id="matrix"><tbody><tr><td className="empty">No attempts yet. Pick an attacker and start.</td></tr></tbody></table></div>
         <div className="legend"><span><i style={{ background: 'var(--bot)' }}></i>a bot got through</span><span><i style={{ background: 'var(--human)' }}></i>blocked (or a human passed)</span><span><i style={{ background: 'var(--warn)' }}></i>mixed</span></div>
@@ -81,6 +82,6 @@ export default function Page() {
         </tbody>
       </table></div></div>
     </section>
-    <ScriptEngine srcs={['/engines/arena.js']} />
+    <ScriptEngine srcs={['/engines/admin.js', '/engines/arena.js']} />
   </>);
 }

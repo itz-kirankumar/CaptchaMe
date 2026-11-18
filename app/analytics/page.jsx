@@ -32,6 +32,6 @@ export default function Page() {
       <div className="card"><h2>Attackers</h2><div className="tablewrap"><table><thead><tr><th>Attacker label</th><th>Attempts</th><th>Got through</th><th>Caught</th></tr></thead><tbody id="byAttacker"><tr><td colSpan="4" className="empty">Set a label in the arena to see tools side by side.</td></tr></tbody></table></div></div>
     </div>
     <div className="card"><h2>Event stream</h2><div className="feed" id="feed"></div></div>
-    <ScriptEngine srcs={['/engines/analytics.js']} />
+    <ScriptEngine srcs={['/engines/admin.js', '/engines/analytics.js']} />
   </>);
 }

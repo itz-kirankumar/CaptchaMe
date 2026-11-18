@@ -5,32 +5,15 @@ const prog = document.getElementById('prog');
 const statusEl = document.getElementById('status');
 const out = document.getElementById('out');
 
-const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
-let RTT = null, RTT_STARTED = false;
-async function measureRtt() {
-  if (RTT_STARTED) return RTT;
-  RTT_STARTED = true;
-  try {
-    const ts = [];
-    for (let i = 0; i < 2; i++) { const t0 = performance.now(); await fetch('/api/ping', { cache: 'no-store' }); ts.push(performance.now() - t0); }
-    RTT = Math.round(Math.min.apply(null, ts));
-  } catch { RTT = null; }
-  return RTT;
-}
-
+const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0, langs: (navigator.languages || []).length, screen: screen.width + 'x' + screen.height, outer: (window.outerWidth || 0) + 'x' + (window.outerHeight || 0), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 40) }; } catch { return {}; } })();
 let NONCE = null;
 async function getNonce() {
   if (NONCE) return NONCE;
   try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
   return NONCE;
 }
-
 async function post(url, body) {
-  if (url === '/api/challenge/start') { measureRtt(); const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
-  if (url === '/api/challenge/submit') {
-    const rtt = await measureRtt();
-    if (rtt != null) body = { ...body, rtt_ms: rtt };
-  }
+  if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return { status: r.status, body: await r.json() };
 }

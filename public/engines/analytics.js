@@ -2,8 +2,7 @@
   'use strict';
   const root = document.getElementById('kpis');
   if (!root) return;
-  const KEY = new URLSearchParams(location.search).get('key') || 'demo-admin';
-  const H = { 'X-Admin-Key': KEY };
+  const admin = window.CMAdmin;
   const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const events = [];
   let since = 0, saved = 0;
@@ -102,13 +101,13 @@
     if (!document.body.contains(root)) return;
     try {
       for (let guard = 0; guard < 40; guard++) {
-        const ev = await (await fetch('/api/admin/events?since=' + since, { headers: H, cache: 'no-store' })).json();
+        const ev = await (await admin.api('/api/admin/events?since=' + since)).json();
         const batch = ev.events || [];
         for (const e of batch) { if (e.seq > since) { since = e.seq; events.push(e); } }
         if (batch.length < 100) break;
       }
       if (events.length > 20000) events.splice(0, events.length - 20000);
-      const ac = await (await fetch('/api/admin/actors', { headers: H, cache: 'no-store' })).json();
+      const ac = await (await admin.api('/api/admin/actors')).json();
       if (ac.summary) saved = ac.summary.estimatedSaved;
       render();
     } catch { /* keep polling */ }

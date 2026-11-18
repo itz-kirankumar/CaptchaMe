@@ -22,7 +22,7 @@ document.getElementById('run').addEventListener('click', async () => {
 
     const d = await (await fetch('/api/agent/declare', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pubkey: pub, signature: sig, nonce: n.nonce, operator: 'browser demo agent' }),
+      body: JSON.stringify({ pubkey: pub, signature: sig, nonce: n.nonce, operator: 'browser agent (agent lane page)' }),
     })).json();
     if (d.result !== 'declared') return line('Declaration failed: ' + (d.reason || 'unknown'), 'fail');
     line(`Declared as ${d.actor}. Budget: $${d.budget.toFixed(2)}. No puzzle solved, no human faked.`, 'pass');
@@ -36,7 +36,7 @@ document.getElementById('run').addEventListener('click', async () => {
         break;
       }
       if (!r.ok) { line(`Stopped: ${b.reason || r.status}`, 'fail'); break; }
-      line(`Call ${i + 1}: served, $${b.remaining.toFixed(2)} left`, 'call');
+      line(`Call ${i + 1}: live snapshot served (${b.data ? b.data.checks + ' checks judged so far' : 'ok'}), $${b.remaining.toFixed(2)} left`, 'call');
       await new Promise(res => setTimeout(res, 250));
     }
   } catch (e) { line('Error: ' + e.message, 'fail'); }

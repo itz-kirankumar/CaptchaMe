@@ -2,18 +2,22 @@
   'use strict';
   const feed = document.getElementById('feed');
   if (!feed) return;
-  const KEY = new URLSearchParams(location.search).get('key') || 'demo-admin';
+  const admin = window.CMAdmin;
   const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   let since = 0;
   async function pull() {
     if (!document.body.contains(feed)) return;
     try {
-      const h = { 'X-Admin-Key': KEY };
-      const [ev, ac, ap] = await Promise.all([
-        fetch('/api/admin/events?since=' + since, { headers: h }).then(r => r.json()),
-        fetch('/api/admin/actors', { headers: h }).then(r => r.json()),
-        fetch('/api/admin/appeals', { headers: h }).then(r => r.json()),
+      const [ev, ac, ap, su] = await Promise.all([
+        admin.api('/api/admin/events?since=' + since).then(r => r.json()),
+        admin.api('/api/admin/actors').then(r => r.json()),
+        admin.api('/api/admin/appeals').then(r => r.json()),
+        admin.api('/api/admin/signups').then(r => r.json()),
       ]);
+      if (su.signups) {
+        document.getElementById('s-signups').textContent = su.signups.length;
+        document.getElementById('signups').innerHTML = su.signups.length ? su.signups.slice(0, 100).map(x => '<tr><td>' + esc(x.name) + '</td><td>' + esc(x.email) + '</td><td>' + esc(x.via || '') + '</td><td class="mono">' + esc(new Date(x.at).toLocaleString()) + '</td></tr>').join('') : '<tr><td colspan="4" class="empty">No requests yet. They arrive from the form on the risk ladder page.</td></tr>';
+      }
       for (const e of ev.events || []) {
         since = Math.max(since, e.seq);
         const d = document.createElement('div');
@@ -43,7 +47,7 @@
     const b = e.target.closest('[data-ap]');
     if (!b) return;
     b.disabled = true;
-    await fetch('/api/admin/appeal/' + b.dataset.ap, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': KEY }, body: JSON.stringify({ action: b.dataset.act }) });
+    await admin.api('/api/admin/appeal/' + b.dataset.ap, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: b.dataset.act }) }).catch(() => {});
   });
   pull();
 })();

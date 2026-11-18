@@ -39,19 +39,19 @@ export default function CheckApp() {
 
     <div className="grid g2 afterwidget" style={{ marginBottom: 40 }}>
       <div className="card">
-        <h2>Try rung 1: a protected sign-up form</h2>
+        <h2>Request early access</h2>
         <form id="ladderForm" autoComplete="off" onSubmit={e => e.preventDefault()}>
           <label htmlFor="lf-name">Name</label>
           <input id="lf-name" name="name" required placeholder="Ada Lovelace" />
           <label htmlFor="lf-email">Email</label>
           <input id="lf-email" name="email" type="email" required placeholder="ada@example.com" />
-          <div className="row"><button type="submit">Create account</button><button type="button" className="ghost" id="botFill">Simulate a bot filling it</button></div>
+          <div className="row"><button type="submit">Request access</button></div>
         </form>
-        <p className="note small">Type normally and submit. Nothing is sent but timings, the form&apos;s hash and your connection details.</p>
+        <p className="note small">A real form, protected by rung 1. The check reads only timings, the form&apos;s hash and your connection details, never what you type. Your name and email are sent only after a pass, and our server checks that pass before it saves them.</p>
       </div>
       <div className="card">
         <h2>What the server decided</h2>
-        <div id="ladderOut"><p className="note">Submit the form to see which rung it lands on and why.</p></div>
+        <div id="ladderOut"><p className="note">Submit the form to see which rung it lands on and why. Want to see a bot meet rung 3? Point your own script or agent at this form.</p></div>
       </div>
     </div>
 

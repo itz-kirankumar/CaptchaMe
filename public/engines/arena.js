@@ -2,7 +2,6 @@
   'use strict';
   const list = document.getElementById('classicList');
   if (!list) return;
-  const ADMIN = new URLSearchParams(location.search).get('key') || 'demo-admin';
   const PRESETS = ['Human', 'Buster', '2Captcha', 'CapSolver', 'NopeCHA', 'Computer-use agent', 'Comet', 'Claude in Chrome', 'Script'];
   const esc = s => String(s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
@@ -37,7 +36,7 @@
     ['text', 'Distorted text'], ['grid', 'Image grid'], ['math', 'Math'], ['slider', 'Slider'],
     ['rotate', 'Rotate'], ['click', 'Click in order'], ['checkbox', 'Bare checkbox'], ['pow', 'Proof of work'],
   ];
-  list.innerHTML = CLASSIC.map(([t, name]) => '<div class="cap" data-type="' + t + '"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new>New</button></div><div class="body"></div><div class="res"></div></div>').join('');
+  list.innerHTML = CLASSIC.map(([t, name]) => '<div class="cap" data-type="' + t + '"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new title="Load a fresh puzzle">Refresh</button></div><div class="body"></div><div class="res"></div></div>').join('');
 
   async function load(card) {
     const type = card.getAttribute('data-type');
@@ -105,6 +104,25 @@
   list.addEventListener('click', e => { const b = e.target.closest('[data-new]'); if (b) load(b.closest('.cap')); });
   list.querySelectorAll('.cap').forEach(load);
 
+  const refreshAll = document.getElementById('refreshAllCaptchas');
+  refreshAll.addEventListener('click', async () => {
+    if (refreshAll.disabled) return;
+    refreshAll.disabled = true;
+    const labelText = refreshAll.textContent;
+    refreshAll.textContent = 'Loading fresh captchas...';
+
+    await Promise.all(Array.from(list.querySelectorAll('.cap'), card => load(card)));
+
+    const cmFrame = document.getElementById('cmFrame');
+    cmFrame.src = '/check?embed=1&fresh=' + Date.now();
+
+    refreshAll.textContent = 'All captchas refreshed';
+    setTimeout(() => {
+      refreshAll.textContent = labelText;
+      refreshAll.disabled = false;
+    }, 900);
+  });
+
   // ---------- real vendor widgets (opt-in) ----------
   const VENDORS = [
     ['turnstile', 'Cloudflare Turnstile', 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', () => window.turnstile, (el, key, cb) => window.turnstile.render(el, { sitekey: key, callback: cb })],
@@ -117,9 +135,10 @@
     e.target.disabled = true;
     const cfg = (await (await fetch('/api/arena/config')).json());
     const box = document.getElementById('vendorList');
-    box.innerHTML = VENDORS.map(([id, name]) => '<div class="cap" data-v="' + id + '" style="margin-top:12px"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span>' + (cfg[id].test ? '<span class="chip warn">test key: always passes</span>' : '<span class="chip">your key</span>') + '</div><div class="thirdparty-slot"></div><div class="res"></div></div>').join('');
+    box.innerHTML = VENDORS.map(([id, name]) => '<div class="cap" data-v="' + id + '" style="margin-top:12px"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span>' + (cfg[id].configured ? '<span class="chip">your key</span>' : '<span class="chip warn">not configured</span>') + '</div><div class="thirdparty-slot"></div><div class="res"></div></div>').join('');
     for (const [id, , src, ready, renderFn] of VENDORS) {
       const card = box.querySelector('[data-v="' + id + '"]'), slot = card.querySelector('.thirdparty-slot'), res = card.querySelector('.res');
+      if (!cfg[id].configured) { res.innerHTML = '<p class="note small">No keys on this server, so there is nothing real to test. Set <code>' + esc(cfg[id].env) + '</code> and restart.</p>'; continue; }
       try {
         await loadScript(src);
         await waitFor(ready);
@@ -157,8 +176,8 @@
   }
   scores();
   document.getElementById('resetScores').addEventListener('click', async () => {
-    if (!confirm('Clear all demo data: scoreboard, ledger, events and stats?')) return;
-    const r = await fetch('/api/admin/reset', { method: 'POST', headers: { 'X-Admin-Key': ADMIN } });
+    if (!confirm('Reset the scoreboard, ledger, events and stats? Early-access requests are kept.')) return;
+    let r; try { r = await window.CMAdmin.api('/api/admin/reset', { method: 'POST' }); } catch { return; }
     const b = await r.json().catch(() => ({}));
     if (!r.ok) alert(b.reason || 'Reset failed');
     document.getElementById('matrix').innerHTML = '<tbody><tr><td class="empty">No attempts yet. Pick an attacker and start.</td></tr></tbody>';

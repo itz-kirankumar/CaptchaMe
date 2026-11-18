@@ -5,12 +5,10 @@ export const metadata = { title: 'Integrations' };
 
 const HASH_NODE = `// The same canonical form hash the widget computes in the browser:
 // SHA-256 of the sorted [name, value] pairs, without the pass field.
-// The pass field's name is randomized per page view and always starts with cm_.
 const crypto = require('crypto');
-function passOf(fields) { const e = Object.entries(fields).find(([k]) => k.startsWith('cm_')); return e && e[1]; }
 function formHash(fields) {
   const pairs = Object.entries(fields)
-    .filter(([k, v]) => !k.startsWith('cm_') && typeof v === 'string')
+    .filter(([k, v]) => k !== 'cm_pass' && typeof v === 'string')
     .sort(([a, x], [b, y]) => (a < b ? -1 : a > b ? 1 : x < y ? -1 : x > y ? 1 : 0));
   return crypto.createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
 }`;
@@ -24,10 +22,8 @@ const SNIPPETS = [
   <button type="submit">Create account</button>
 </form>
 <script src="{ORIGIN}/widget.js" data-form="#signup"></script>
-<!-- On submit the form gains a hidden pass field whose name is randomized per
-     page view (cm_...), bound to this browser and to these exact form contents,
-     then submits as normal. Your server finds it as the only cm_* field; client
-     code can also listen for the "captchame:pass" event on the form. -->`],
+<!-- On submit the form gains a hidden field "cm_pass", bound to this browser
+     and to these exact form contents, then submits as normal. -->`],
   ['next', 'Next.js', `// app/api/signup/route.js : verify the pass before you accept the action
 ${HASH_NODE}
 
@@ -37,7 +33,7 @@ export async function POST(req) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      pass: passOf(form),
+      pass: form.cm_pass,
       form_hash: formHash(form),                 // refuses a pass pasted into another submission
       remoteip: req.headers.get('x-forwarded-for')?.split(',')[0],
       user_agent: req.headers.get('user-agent'), // refuses a pass relayed from another browser
@@ -55,7 +51,7 @@ async function captchame(req, res, next) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      pass: passOf(req.body), form_hash: formHash(req.body), remoteip: req.ip,
+      pass: req.body.cm_pass, form_hash: formHash(req.body), remoteip: req.ip,
       user_agent: req.get('user-agent'), accept_language: req.get('accept-language'),
     }),
   });
@@ -72,7 +68,7 @@ from fastapi import FastAPI, Request, HTTPException
 app = FastAPI()
 
 def form_hash(fields: dict) -> str:
-    pairs = sorted((k, v) for k, v in fields.items() if not k.startswith("cm_") and isinstance(v, str))
+    pairs = sorted((k, v) for k, v in fields.items() if k != "cm_pass" and isinstance(v, str))
     return hashlib.sha256(json.dumps([list(p) for p in pairs], separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
 @app.post("/signup")
@@ -80,7 +76,7 @@ async def signup(request: Request):
     form = dict(await request.form())
     async with httpx.AsyncClient() as c:
         v = (await c.post("{ORIGIN}/api/pass/verify", json={
-            "pass": next((v for k, v in form.items() if k.startswith("cm_")), None), "form_hash": form_hash(form),
+            "pass": form.get("cm_pass"), "form_hash": form_hash(form),
             "remoteip": request.client.host,
             "user_agent": request.headers.get("user-agent"),
             "accept_language": request.headers.get("accept-language"),
@@ -211,7 +207,7 @@ export default function Page() {
           </div>
           <div className="card">
             <h2>Try it before you wire it</h2>
-            <p><a href="/demo.html">Northwind Books</a> is a mock storefront protected with the one-line invisible widget. Or start with the <Link href="/audit">free log audit</Link> to see what bots cost you today.</p>
+            <p>The <Link href="/check">early-access form</Link> on the risk ladder page is protected with the same one-line invisible widget, and our server verifies each pass before saving the request. Or start with the <Link href="/audit">free log audit</Link> to see what bots cost you today.</p>
           </div>
         </div>
       </div>

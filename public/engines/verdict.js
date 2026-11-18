@@ -43,7 +43,7 @@ function verdict(outEl, res, opts) {
   const note = document.createElement('div');
   note.className = 'vnote';
   note.textContent = pass
-    ? (typeof b.budget_added === 'number' ? '$' + b.budget_added.toFixed(2) + ' added to your allowance on the demo API.' : '')
+    ? (typeof b.budget_added === 'number' ? '$' + b.budget_added.toFixed(2) + ' added to your allowance on the protected API.' : '')
     : (opts.failHint || 'You can retry, or use another path.');
   wrap.appendChild(note);
 

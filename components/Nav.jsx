@@ -5,15 +5,9 @@ import { useEffect, useState } from 'react';
 import Logo from './Logo';
 
 export const LINKS = [
-  ['/audit', 'Audit'],
-  ['/#livestack', 'Live gateway'],
-  ['/check', 'Risk ladder'],
-  ['/live', 'Live run'],
-  ['/arena', 'Arena'],
-  ['/scraper', 'Scraper shield'],
-  ['/integrations', 'Integrations'],
-  ['/analytics', 'Analytics'],
-  ['/dry-run', 'Dry run'],
+  ['/#livestack', 'Live demo'],
+  ['/layer2', 'Layer 2 analysis'],
+  ['/evidence', 'Evidence'],
 ];
 
 export default function Nav() {
@@ -21,7 +15,7 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState('dark');
   useEffect(() => { setTheme(document.documentElement.dataset.theme || 'dark'); }, []);
-  useEffect(() => { setOpen(false); }, [path]);
+  useEffect(() => { setOpen(false); document.querySelectorAll('.admingate').forEach(e => e.remove()); }, [path]);
 
   function flip() {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -49,7 +43,7 @@ export default function Nav() {
           <a className="iconbtn" href="https://github.com/itz-kirankumar/CaptchaMe" aria-label="GitHub repository">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.6 1 1.6 1 .9 1.5 2.3 1.1 2.9.8.1-.6.4-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7c-.1-.3-.5-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2z" /></svg>
           </a>
-          <Link className="btn sm" href="/check">Try it</Link>
+          <Link className="btn sm" href="/try">Try it</Link>
           <button className="iconbtn menu-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Menu">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d={open ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'} /></svg>
           </button>

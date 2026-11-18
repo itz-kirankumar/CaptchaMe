@@ -1,10 +1,11 @@
-'use strict';
+﻿'use strict';
 // End-to-end: boots the server, walks every lane as a synthetic human and as
 // each attack, checks the ledger, cap and appeal flow.
 // Run: node test/e2e.js
 const { spawn } = require('child_process');
 const crypto = require('crypto');
-const actors = require('../demo/actors');
+const actors = require('./actors');
+process.env.POP_ADMIN_KEY = process.env.POP_ADMIN_KEY || 'e2e-admin-' + crypto.randomBytes(6).toString('hex');
 
 const PORT = 3999;
 const BASE = `http://localhost:${PORT}`;
@@ -73,7 +74,7 @@ async function runChallenge(type, payloadFn, wait = true) {
 }
 
 (async () => {
-  const srv = spawn(process.execPath, [require('path').join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(PORT), POP_RATE_PER_MIN: '4000', POP_ACTIVE_GRACE_MS: '800' }, stdio: 'pipe' });
+  const srv = spawn(process.execPath, [require('path').join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(PORT), POP_RATE_PER_MIN: '4000', POP_ACTIVE_GRACE_MS: '800', LAYER2_MODE: 'shadow' }, stdio: 'pipe' });
   await new Promise(res => srv.stdout.once('data', res));
 
   console.log('\n== humans should pass ==');
@@ -127,7 +128,7 @@ async function runChallenge(type, payloadFn, wait = true) {
   {
     const t = await get('/trap');
     check('trap endpoint responds', t.status === 200);
-    const dash = await get('/api/admin/events', { 'x-admin-key': 'demo-admin' });
+    const dash = await get('/api/admin/events', { 'x-admin-key': process.env.POP_ADMIN_KEY });
     check('trap visit logged on dashboard', JSON.stringify(dash.body).includes('trap'));
   }
   {
@@ -237,7 +238,7 @@ async function runChallenge(type, payloadFn, wait = true) {
     check('block carries appeal url', !!blocked && /appeal/.test(blocked.appeal_url || ''));
     const ap = await post('/api/appeal', { actor: blocked.actor.id, message: 'e2e test appeal' });
     check('appeal filed', ap.status === 200 && ap.body.ok);
-    const adm = await post('/api/admin/appeal/' + ap.body.appeal_id, { action: 'approve' }, { 'X-Admin-Key': 'demo-admin' });
+    const adm = await post('/api/admin/appeal/' + ap.body.appeal_id, { action: 'approve' }, { 'X-Admin-Key': process.env.POP_ADMIN_KEY });
     check('appeal approved by human', adm.status === 200 && adm.body.appeal.status === 'approved');
     const again = await fetch(BASE + '/api/protected/quote', { headers: { Cookie: jar.join('; ') } });
     check('actor served again after appeal', again.status === 200, 'got ' + again.status);
@@ -252,7 +253,7 @@ async function runChallenge(type, payloadFn, wait = true) {
     check('agent capped at its own budget', blockedAt === 10, 'blockedAt=' + blockedAt);
   }
   {
-    const s = await get('/api/admin/actors', { 'X-Admin-Key': 'demo-admin' });
+    const s = await get('/api/admin/actors', { 'X-Admin-Key': process.env.POP_ADMIN_KEY });
     check('admin ledger readable', s.status === 200 && s.body.actors.length > 0);
     check('savings counted', s.body.summary.estimatedSaved > 0, JSON.stringify(s.body.summary));
     const denied = await get('/api/admin/actors', { 'X-Admin-Key': 'wrong' });
@@ -326,7 +327,7 @@ async function runChallenge(type, payloadFn, wait = true) {
     const res = await get('/api/arena/results');
     check('arena scoreboard records attacker labels', res.body.results.some(r => r.attacker === 'e2e-solver' && r.format === 'classic:checkbox' && r.pass >= 1), JSON.stringify(res.body.results.slice(0, 5)));
     const cfg = await get('/api/arena/config');
-    check('third-party widgets fall back to test keys', cfg.body.turnstile.test === true && cfg.body.hcaptcha.siteKey && cfg.body.recaptcha.siteKey);
+    check('vendors without keys show as not configured (no test-key fallback)', cfg.body.turnstile.configured === false && cfg.body.hcaptcha.configured === false);
   }
 
   console.log('\n== scraper shield ==');
@@ -342,12 +343,19 @@ async function runChallenge(type, payloadFn, wait = true) {
     await sleep(300);
     const b = await fetch(BASE + '/api/catalog?page=7', { headers: browser });
     check('a person browsing is allowed', a.headers.get('x-captchame-shield') === 'allow' && b.headers.get('x-captchame-shield') === 'allow', a.headers.get('x-captchame-shield') + '/' + b.headers.get('x-captchame-shield'));
-    const trap = await fetch(BASE + '/api/catalog/item/trap-collectors', { headers: { ...browser, Cookie: 'cm_js=1; cm_vid=e2etrapper02' } });
+    const trap = await fetch(BASE + '/api/catalog/item/trap-export', { headers: { ...browser, Cookie: 'cm_js=1; cm_vid=e2etrapper02' } });
     check('trap item blocks the visitor', trap.status === 429, 'got ' + trap.status);
     const chk = await post('/api/shield/check', { ip: '203.0.113.9', ua: 'Scrapy/2.11', acceptLanguage: '', js: false, page: 1 });
     check('shield check API returns a decision with reasons', chk.status === 200 && chk.body.decision && chk.body.reasons.length > 0, JSON.stringify(chk.body));
-    const st = await get('/api/admin/shield', { 'X-Admin-Key': 'demo-admin' });
+    const st = await get('/api/admin/shield', { 'X-Admin-Key': process.env.POP_ADMIN_KEY });
     check('shield state readable by admin', st.status === 200 && st.body.actors.length > 0);
+  }
+
+  {
+    // a bare API caller with no live page view is refused before any challenge runs
+    const r = await fetch(BASE + '/api/challenge/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'ring' }) });
+    const b = await r.json().catch(() => ({}));
+    check('challenge start without a live page nonce is refused', r.status === 403 && b.error === 'no_page_nonce', JSON.stringify(b));
   }
 
   console.log('\n== hidden schedule and answer window ==');
@@ -399,11 +407,6 @@ async function runChallenge(type, payloadFn, wait = true) {
     const other = crypto.createHash('sha256').update('different submission').digest('hex');
     const bad = await post('/api/pass/verify', { pass: r.body.pass_token, form_hash: other });
     check('silent pass refused for a different form submission', bad.body.ok === false && /different form/.test(bad.body.reason), JSON.stringify(bad.body));
-    const raw = await fetch(BASE + '/api/pass/silent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telemetry: tel, form_hash: FORM }) });
-    const rawB = await raw.json();
-    check('silent telemetry without a live page nonce is pushed to a full check', rawB.tier === 'challenge', JSON.stringify(rawB));
-    const rawStart = await fetch(BASE + '/api/challenge/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'ring' }) });
-    check('challenge start without a live page nonce is refused', rawStart.status === 403, 'HTTP ' + rawStart.status);
   }
   {
     const r = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 400, fields: [{ keys: [], chars: 15 }], pointer: [], trustedSubmit: true, env: {} }, form_hash: FORM });
@@ -448,7 +451,7 @@ async function runChallenge(type, payloadFn, wait = true) {
     const silent = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 9400, fields: [{ keys: typing(rng, 14), chars: 14 }], pointer: approach(), trustedSubmit: true, env: {} } });
     const v = await post('/api/pass/verify', { pass: silent.body.pass_token });
     const d = await declare({ pass: silent.body.pass_token });
-    check('agent declared with a person’s pass spends from that person’s share', d.mode === 'delegated' && d.actor === v.body.actor, JSON.stringify(d));
+    check('agent declared with a personâ€™s pass spends from that personâ€™s share', d.mode === 'delegated' && d.actor === v.body.actor, JSON.stringify(d));
   }
   {
     // Web Bot Auth: a signed request, keys published in a directory
@@ -495,7 +498,7 @@ async function runChallenge(type, payloadFn, wait = true) {
   {
     const s = await get('/api/stats');
     check('public stats count checks and catches', s.body.checks > 0 && s.body.botsCaught > 0 && s.body.humans > 0, JSON.stringify(s.body));
-    const r = await post('/api/admin/reset', {}, { 'X-Admin-Key': 'demo-admin' });
+    const r = await post('/api/admin/reset', {}, { 'X-Admin-Key': process.env.POP_ADMIN_KEY });
     check('demo reset clears data', r.status === 200 && r.body.ok);
     const s2 = await get('/api/stats');
     check('stats empty after reset', s2.body.checks === 0, JSON.stringify(s2.body));

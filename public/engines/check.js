@@ -7,24 +7,9 @@
   // When a protected form steps a visitor up to this check, the pass is bound
   // to that form's exact contents (a SHA-256 the parent page computed).
   const FORM = /^[a-f0-9]{64}$/i.test(new URLSearchParams(location.search).get('form') || '') ? new URLSearchParams(location.search).get('form').toLowerCase() : undefined;
-  const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
+  const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0, langs: (navigator.languages || []).length, screen: screen.width + 'x' + screen.height, outer: (window.outerWidth || 0) + 'x' + (window.outerHeight || 0), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 40) }; } catch { return {}; } })();
   const col = n => cmVar(n);
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
-
-  // Network RTT measured while the challenge runs. The server compares it
-  // with reaction lag: a remote human streaming a datacenter browser shows
-  // human-sized lag over a datacenter-sized round trip, and that contradicts.
-  let RTT = null, RTT_STARTED = false;
-  async function measureRtt() {
-    if (RTT_STARTED) return RTT;
-    RTT_STARTED = true;
-    try {
-      const ts = [];
-      for (let i = 0; i < 2; i++) { const t0 = performance.now(); await fetch('/api/ping', { cache: 'no-store' }); ts.push(performance.now() - t0); }
-      RTT = Math.round(Math.min.apply(null, ts));
-    } catch { RTT = null; }
-    return RTT;
-  }
 
   let NONCE = null;
   async function getNonce() {
@@ -32,14 +17,9 @@
     try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
     return NONCE;
   }
-
   async function post(url, body) {
-    if (url === '/api/challenge/start') { measureRtt(); const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
-    if (url === '/api/challenge/submit') {
-      if (FORM) body = { ...body, form_hash: FORM };
-      const rtt = await measureRtt();
-      if (rtt != null) body = { ...body, rtt_ms: rtt };
-    }
+    if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
+    if (url === '/api/challenge/submit' && FORM) body = { ...body, form_hash: FORM };
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { status: r.status, body: await r.json() };
   }

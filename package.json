@@ -8,9 +8,13 @@
     "build": "next build",
     "start": "next start",
     "legacy": "node server.js",
-    "test": "node test/e2e.js",
-    "demo:attack": "node demo/bots.js",
-    "demo:scrape": "node demo/scraper.js"
+    "test": "node test/e2e.js && node test/abuseguard.js && node test/layer2.js",
+    "test:abuseguard": "node test/abuseguard.js",
+    "test:layer2": "node test/layer2.js",
+    "validate": "node validation/run.js",
+    "validate:fetch": "bash validation/fetch.sh",
+    "test:validation": "node validation/test-stats.js",
+    "prebuild": "node scripts/build-metrics.js"
   },
   "license": "MIT",
   "engines": {

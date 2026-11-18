@@ -19,18 +19,19 @@
     out.innerHTML = '<span class="chip ' + cls + '">' + label + '</span>' +
       (lines.length ? '<ul class="small" style="margin-top:10px">' + lines.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
       '<p class="note small mono">time on page ' + Math.round((det.timeOnPageMs || 0) / 100) / 10 + ' s · ' + (det.keys || 0) + ' key timings · ' + (det.pointerSamples || 0) + ' pointer samples · network risk ' + (det.networkRisk || 0) + '</p>' +
-      (d.tier === 'nudge' ? '<p class="note">Hold the Create account button and let go when it turns green.</p>' : '') +
+      (d.tier === 'nudge' ? '<p class="note">Hold the Request access button and let go when it turns green.</p>' : '') +
       (d.tier === 'challenge' ? '<p class="note">A live check opens in an overlay. Only traffic like this ever sees one.</p>' : '');
   }
-  function passed(token, info) {
-    out.insertAdjacentHTML('beforeend', '<div class="result pass" style="margin-top:12px">Pass <code>' + esc(token.slice(0, 18)) + '...</code> issued' + (info && info.tier === 'challenge-passed' ? ' after the live check' : '') + '. It works once, for 5 minutes, only from this browser and only for this exact form.</div>');
+  // With a pass in hand, send the form to our own server, which verifies the
+  // pass (this browser, these exact values, one use) before saving anything.
+  async function passed(token, info) {
+    const body = { name: form.elements.name.value, email: form.elements.email.value, cm_pass: token };
+    let r, b = {};
+    try { r = await fetch('/api/early-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); b = await r.json().catch(() => ({})); } catch { b = { reason: 'Could not reach the server.' }; }
+    const ok = r && r.ok;
+    out.insertAdjacentHTML('beforeend', '<div class="result ' + (ok ? 'pass' : 'fail') + '" style="margin-top:12px">' +
+      (ok ? esc(b.reason) + (info && info.tier === 'challenge-passed' ? ' (after the live check)' : '') : 'Not sent: ' + esc(b.reason || 'the server refused the pass')) + '</div>');
+    if (ok) form.reset();
   }
   window.CaptchaMe.protect(form, { autoSubmit: false, onDecision: render, onPass: passed });
-
-  document.getElementById('botFill').addEventListener('click', () => {
-    out.innerHTML = '<p class="note">A script fills the fields and submits the form in one go...</p>';
-    form.elements.name.value = 'Bot McBotface';
-    form.elements.email.value = 'farm-' + Math.floor(Math.random() * 1e6) + '@mailinator.com';
-    form.requestSubmit();
-  });
 })();

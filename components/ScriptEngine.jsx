@@ -21,7 +21,8 @@ export default function ScriptEngine({ srcs }) {
         });
       }
     })();
-    return () => els.forEach(s => s.remove());
+    // leaving a page also removes the admin-key box a script may have put into <main>
+    return () => { els.forEach(s => s.remove()); document.querySelectorAll('.admingate').forEach(n => n.remove()); };
   }, [srcs]);
   return null;
 }

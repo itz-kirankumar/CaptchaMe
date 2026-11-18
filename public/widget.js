@@ -18,35 +18,22 @@
   var s = document.currentScript;
   var ORIGIN = s ? new URL(s.src).origin : location.origin;
 
-  var RTT = null, RTT_STARTED = false;
-  function measureRtt() {
-    if (RTT_STARTED) return Promise.resolve(RTT);
-    RTT_STARTED = true;
-    var ts = [];
-    function once() { var t0 = performance.now(); return fetch(ORIGIN + '/api/ping', { cache: 'no-store' }).then(function () { ts.push(performance.now() - t0); }); }
-    return once().then(once).then(function () { RTT = Math.round(Math.min.apply(null, ts)); return RTT; }).catch(function () { return null; });
-  }
-
   // One page nonce per page view, shared by every protected form on the page.
-  var CM_NONCE = null, CM_NONCE_FIELD = null, CM_NONCE_STARTED = false;
+  var CM_NONCE = null, CM_NONCE_STARTED = false;
   function fetchNonce() {
     if (CM_NONCE_STARTED) return Promise.resolve(CM_NONCE);
     CM_NONCE_STARTED = true;
     return fetch(ORIGIN + '/api/page/nonce', { cache: 'no-store', credentials: 'omit' })
       .then(function (r) { return r.json(); })
-      .then(function (d) { if (d && d.nonce) { CM_NONCE = d.nonce; CM_NONCE_FIELD = d.field || null; } return CM_NONCE; })
+      .then(function (d) { if (d && d.nonce) { CM_NONCE = d.nonce; } return CM_NONCE; })
       .catch(function () { return null; });
   }
 
   function post(url, body) {
     if (url === '/api/challenge/start') {
-      measureRtt();
-      return fetchNonce().then(function () {
-        return send(url, CM_NONCE ? Object.assign({}, body, { page_nonce: CM_NONCE }) : body);
+      return fetchNonce().then(function (n) {
+        return send(url, n ? Object.assign({}, body, { page_nonce: n }) : body);
       });
-    }
-    if (url === '/api/challenge/submit') {
-      return measureRtt().then(function (rtt) { return send(url, rtt != null ? Object.assign({}, body, { rtt_ms: rtt }) : body); });
     }
     return send(url, body);
   }
@@ -70,11 +57,7 @@
     opts = opts || {};
     if (!form || form.__captchame) return;
     form.__captchame = true;
-    // Per-session random field name, replaced by the server-issued one once the
-    // page nonce arrives: extensions cannot hook a fixed captchame_pass input.
-    var field = opts.field || 'cm_' + Math.random().toString(36).slice(2, 12);
-    var pageNonce = null;
-    var nonceReady = fetchNonce().then(function () { pageNonce = CM_NONCE; if (CM_NONCE_FIELD && !opts.field) field = CM_NONCE_FIELD; });
+    var field = opts.field || 'cm_pass';
     var fields = new Map(), pointer = [], ptype = 'mouse', scrolls = 0, busy = false, submitter = null;
 
     function rec(el) {
@@ -132,8 +115,8 @@
       if (busy) return;
       busy = true;
       var trusted = e.isTrusted;
-      nonceReady.then(function () { return formHash(form, field); }).then(function (hash) {
-        return post('/api/pass/silent', { telemetry: telemetry(trusted), form_hash: hash, page_nonce: pageNonce }).then(function (d) {
+      formHash(form, field).then(function (hash) {
+        return post('/api/pass/silent', { telemetry: telemetry(trusted), form_hash: hash }).then(function (d) {
           if (typeof opts.onDecision === 'function') opts.onDecision(d);
           if (d.tier === 'pass') return finish(d.pass_token, d);
           if (d.tier === 'nudge') return nudge(d, hash);
@@ -171,7 +154,7 @@
         e.preventDefault();
         if (goShownAt === null) return reset('Too early: hold until it turns green');
         done = true;
-        var body = { session: d.session, pressAt: Math.round(pressAt), goShownAt: Math.round(goShownAt), releaseAt: Math.round(performance.now()), trusted: e.isTrusted, page_nonce: pageNonce };
+        var body = { session: d.session, pressAt: Math.round(pressAt), goShownAt: Math.round(goShownAt), releaseAt: Math.round(performance.now()), trusted: e.isTrusted };
         cleanup();
         post('/api/pass/nudge', body).then(function (r) {
           if (typeof opts.onDecision === 'function') opts.onDecision(Object.assign({ step: 'nudge' }, r));
@@ -191,12 +174,7 @@
     }
 
     // Rung 3: a full live check in an overlay, only for strong signals.
-    // Rendered inside a closed shadow root so page extensions cannot hook the
-    // overlay's DOM or read the challenge iframe from outside.
     function stepUp(hash, d) {
-      var host = document.createElement('div');
-      document.body.appendChild(host);
-      var root = host.attachShadow ? host.attachShadow({ mode: 'closed' }) : host;
       var wrap = document.createElement('div');
       wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(5,6,10,.72);display:flex;align-items:center;justify-content:center;padding:16px';
       var box = document.createElement('div');
@@ -208,14 +186,14 @@
       f.src = ORIGIN + '/check?embed=1&format=auto' + (hash ? '&form=' + hash : '');
       f.title = 'CaptchaMe check'; f.setAttribute('allow', 'microphone');
       f.style.cssText = 'width:100%;height:min(760px,86vh);border:0;border-radius:18px;background:#07080c;display:block';
-      box.appendChild(close); box.appendChild(f); wrap.appendChild(box); root.appendChild(wrap);
+      box.appendChild(close); box.appendChild(f); wrap.appendChild(box); document.body.appendChild(wrap);
       function onMsg(e) {
         if (e.origin !== ORIGIN || !e.data || e.data.type !== 'captchame:pass') return;
-        removeEventListener('message', onMsg); host.remove();
+        removeEventListener('message', onMsg); wrap.remove();
         finish(e.data.pass_token, { tier: 'challenge-passed', score: e.data.score });
       }
       addEventListener('message', onMsg);
-      close.onclick = function () { removeEventListener('message', onMsg); host.remove(); busy = false; };
+      close.onclick = function () { removeEventListener('message', onMsg); wrap.remove(); busy = false; };
       if (typeof opts.onStepUp === 'function') opts.onStepUp(d);
     }
   }
@@ -233,7 +211,7 @@
   // Visible mode: the check box in the page (needs data-site or data-mode="challenge";
   // a bare <script src="widget.js"> only exposes window.CaptchaMe).
   if (!s.hasAttribute('data-site') && s.getAttribute('data-mode') !== 'challenge') return;
-  var site = s.getAttribute('data-site') || 'demo-site';
+  var site = s.getAttribute('data-site') || 'default';
   var onpass = s.getAttribute('data-onpass');
   var fr = document.createElement('iframe');
   fr.src = ORIGIN + '/check?embed=1&site=' + encodeURIComponent(site);

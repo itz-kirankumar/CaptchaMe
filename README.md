@@ -67,6 +67,21 @@ Solver services beat classic captchas two ways: ship the content (image, audio, 
 
 Without keys the arena uses each vendor's public test keys, which always pass, and says so on the card. For a real comparison set `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`, `HCAPTCHA_SITE_KEY`/`HCAPTCHA_SECRET_KEY` and `RECAPTCHA_SITE_KEY`/`RECAPTCHA_SECRET_KEY`.
 
+## The second layer: abuseguard (optional)
+
+CaptchaMe proves a live person is there. It cannot see that twelve "different" visitors are one person who
+keeps taking the free tier. [abuseguard](docs/ABUSEGUARD.md) sits behind it and caps dollars **per person
+across every account, key and session linked to them**, with named reasons, appeals and signed alerts.
+Set `ABUSEGUARD_URL`, `ABUSEGUARD_KEY` and `ABUSEGUARD_SALT` to turn it on; it starts in shadow mode and
+fails open, and with the variables unset nothing changes. Status and the shadow comparison:
+`GET /api/admin/abuseguard`. Test: `npm run test:abuseguard`. Full guide: [docs/ABUSEGUARD.md](docs/ABUSEGUARD.md).
+
+## Validation on public data
+
+`npm run validate:fetch && npm run validate` audits and runs the checks against real public datasets
+(typing, pointer, client identity, Stroop) with person-level confidence intervals. What exists, what it can and cannot
+prove, and the measured gaps are in [docs/DATASETS.md](docs/DATASETS.md) and [docs/VALIDATION-PLAN.md](docs/VALIDATION-PLAN.md).
+
 ## Vercel
 
 The repo deploys to Vercel as-is: `api/[...all].js` handles every `/api/*`
@@ -141,3 +156,10 @@ STT-based audio solvers (the Buster approach) hit the voice path, which scores v
 - Real commercial agentic browsers (Comet, Atlas, ChatGPT agent mode) have not been run against the live site yet. Our own cloud-browser agent attempt failed the flash check.
 
 Human friction budget: ring 7s, beat ~9s, voice ~8s, flash ~11s. One screen, one try, no puzzles.
+
+
+## Layer 2: post-verification analysis
+
+Layer 1 decides one challenge. Layer 2 keeps every packet layer 1 produces, merges them into one identity per real client (across IP, network signature, TLS hash when a proxy supplies one, browser fingerprint, cookies and tokens), names the bypass family (script, automation browser, solver service, LLM agent, human-mimic, scraper, declared agent, human), shows which layer flagged it, and reports what each identity cost and scraped. The protected API asks layer 2 before it serves a call.
+
+Open `/layer2` for the analysis and `/live` to attack both layers side by side. Full write-up, evidence codes, red-team notes and limits: [docs/LAYER2.md](docs/LAYER2.md). `npm run test:layer2` runs 27 checks.
