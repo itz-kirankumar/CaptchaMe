@@ -9,6 +9,7 @@ function show(cls, text) {
   d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
 async function post(url, body) {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return { status: r.status, body: await r.json() };
@@ -84,7 +85,7 @@ document.getElementById('startRing').addEventListener('click', async () => {
     cv.removeEventListener('pointermove', onMove);
     cv.removeEventListener('touchmove', onMove);
     drawIdle();
-    const res = await post('/api/challenge/submit', { session: r.body.session, samples });
+    const res = await post('/api/challenge/submit', { session: r.body.session, samples, env: ENV });
     report(res);
   }
   requestAnimationFrame(frame);
@@ -125,7 +126,7 @@ document.getElementById('startBeat').addEventListener('click', async () => {
   async function finish() {
     zone.removeEventListener('pointerdown', tap);
     zone.textContent = 'Tap zone';
-    const res = await post('/api/challenge/submit', { session: r.body.session, taps });
+    const res = await post('/api/challenge/submit', { session: r.body.session, taps, env: ENV });
     report(res);
   }
   requestAnimationFrame(tick);
@@ -165,7 +166,7 @@ document.getElementById('startReflex').addEventListener('click', async () => {
   async function finish() {
     reflexZone.removeEventListener('pointerdown', click);
     reflexZone.textContent = 'Tap the flash';
-    const res = await post('/api/challenge/submit', { session: r.body.session, clicks });
+    const res = await post('/api/challenge/submit', { session: r.body.session, clicks, env: ENV });
     report(res);
   }
   requestAnimationFrame(tick);

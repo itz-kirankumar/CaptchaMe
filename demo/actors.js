@@ -92,4 +92,27 @@ function agentReflex(rounds) {
   return rounds.map(r => r.at + 1350); // look-think-act loop: misses every sub-second window
 }
 
-module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice, humanReflex, scriptReflex, agentReflex };
+// Adaptive script: knows the params AND fakes human jitter - lag, wander,
+// noisy intervals. Its remaining tells: it submits instantly (wall clock),
+// its noise is iid, and it has no embodiment. This is the strongest free
+// scripted attacker we can build; the demo runs it honestly.
+function adaptiveRing(P, seed = 9) {
+  const rng = mulberry(seed);
+  const samples = [];
+  let lag = 150 + rng() * 100;
+  let wx = 0, wy = 0;
+  for (let t = 0; t < P.durationMs; t += 14 + rng() * 9) {
+    lag += (rng() - 0.5) * 12;
+    wx = wx * 0.93 + gauss(rng) * 0.005;
+    wy = wy * 0.93 + gauss(rng) * 0.005;
+    const g = targetAt(P, Math.max(0, t - lag));
+    samples.push({ t: Math.round(t), x: +(g.x + wx + gauss(rng) * 0.012).toFixed(4), y: +(g.y + wy + gauss(rng) * 0.012).toFixed(4) });
+  }
+  return samples;
+}
+function adaptiveReflex(rounds, seed = 8) {
+  const rng = mulberry(seed);
+  return rounds.map(r => Math.round(r.at + 160 + rng() * 300));
+}
+
+module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice, humanReflex, scriptReflex, agentReflex, adaptiveRing, adaptiveReflex };

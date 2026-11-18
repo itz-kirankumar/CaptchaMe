@@ -24,10 +24,19 @@ async function get(path, headers = {}) {
   return { status: r.status, body: b };
 }
 
-async function runChallenge(type, payloadFn) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function wallClockWait(type, P) {
+  if (type === 'ring') return 0.75 * P.durationMs;
+  if (type === 'reflex') return 0.75 * P.totalMs;
+  if (type === 'beat') return 0.75 * (P.beats[P.beats.length - 1] + 800);
+  if (type === 'voice') return 3100;
+  return 0;
+}
+async function runChallenge(type, payloadFn, wait = true) {
   const start = await post('/api/challenge/start', { type });
   if (start.status !== 200) return { error: 'start failed ' + start.status };
   const payload = payloadFn(start.body.params);
+  if (wait) await sleep(wallClockWait(type, start.body.params));
   const sub = await post('/api/challenge/submit', { session: start.body.session, ...payload });
   return { start: start.body, sub: sub.body, subStatus: sub.status };
 }
@@ -87,6 +96,25 @@ async function runChallenge(type, payloadFn) {
     check('trap endpoint responds', t.status === 200);
     const dash = await get('/api/admin/events', { 'x-admin-key': 'demo-admin' });
     check('trap visit logged on dashboard', JSON.stringify(dash.body).includes('trap'));
+  }
+  {
+    // strongest free attacker: reads the params, fakes human jitter, submits instantly
+    const r = await runChallenge('ring', P => ({ samples: actors.adaptiveRing(P, 5) }), false);
+    check('adaptive jitter script fails', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.detail));
+    check('adaptive script caught by wall clock', r.sub && r.sub.flags.some(f => /computed, not performed/.test(f)), JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    const r = await runChallenge('reflex', P => ({ clicks: actors.adaptiveReflex(P.rounds, 5) }), false);
+    check('adaptive reflex script fails on wall clock', r.sub && r.sub.flags.some(f => /computed, not performed/.test(f)), JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    // webdriver probe
+    const start = await post('/api/challenge/start', { type: 'beat' });
+    const taps = actors.humanBeat(start.body.params.beats, 5);
+    await sleep(wallClockWait('beat', start.body.params));
+    const r = await post('/api/challenge/submit', { session: start.body.session, taps, env: { webdriver: true } });
+    check('webdriver env fails', r.body && r.body.result === 'fail');
+    check('webdriver flagged', r.body && r.body.flags.some(f => /automation control/.test(f)), JSON.stringify(r.body && r.body.flags));
   }
   {
     // replay: answer a session, then answer it again

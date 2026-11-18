@@ -145,13 +145,30 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   }
   doneSessions.add(sess.id);
 
+  // Wall-clock check: the answer must take at least most of the challenge's
+  // real duration. A script can fake every signal and still submit instantly.
+  const elapsedMs = Date.now() - sess.iat;
+  let minMs = 0;
+  if (sess.type === 'ring') minMs = 0.7 * sess.params.durationMs;
+  else if (sess.type === 'reflex') minMs = 0.7 * sess.params.totalMs;
+  else if (sess.type === 'beat') minMs = 0.7 * (sess.params.beats[sess.params.beats.length - 1] + 800);
+  else if (sess.type === 'voice') minMs = 3000;
+  const tooFast = elapsedMs < minMs;
+
+  // Automation probes from the client environment (navigator.webdriver etc).
+  const env = body.env || {};
+  const webdriver = env.webdriver === true;
+
   let result;
   if (sess.type === 'ring') result = scoring.scoreRingDarts(sess.params, body.samples);
   else if (sess.type === 'beat') result = scoring.scoreBeat(sess.params.beats, body.taps);
   else if (sess.type === 'reflex') result = scoring.scoreReflex(sess.params.rounds, body.clicks);
   else result = scoring.scoreVoice(sess.params.words, body.wordTimings, body.transcript);
 
-  const passed = result.score >= 60 && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired/.test(f));
+  if (tooFast) { result.score = Math.min(result.score, 10); result.flags.push('answered in ' + Math.round(elapsedMs) + ' ms for a challenge that runs ' + Math.round(minMs / 0.7) + ' ms: computed, not performed'); }
+  if (webdriver) { result.score = Math.min(result.score, 10); result.flags.push('browser reports it is under automation control (navigator.webdriver)'); }
+
+  const passed = result.score >= 60 && !tooFast && !webdriver && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control/.test(f));
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
 
   if (passed) {
