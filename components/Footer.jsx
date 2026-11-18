@@ -11,7 +11,8 @@ export default function Footer() {
         </div>
         <div>
           <h4>Product</h4>
-          <Link href="/check">Formats</Link>
+          <Link href="/check">Risk ladder</Link>
+          <Link href="/audit">Bot cost audit</Link>
           <Link href="/voice">Voice path</Link>
           <Link href="/agent">Agent lane</Link>
           <Link href="/scraper">Scraper shield</Link>

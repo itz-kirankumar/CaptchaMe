@@ -22,6 +22,9 @@ const ledger = require('./lib/ledger');
 const store = require('./lib/store');
 const classic = require('./lib/classic');
 const shield = require('./lib/shield');
+const passive = require('./lib/passive');
+const webbotauth = require('./lib/webbotauth');
+const audit = require('./lib/audit');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.POP_ADMIN_KEY || 'demo-admin';
@@ -39,10 +42,10 @@ function send(res, status, body, headers = {}) {
   res.writeHead(status, { 'Content-Type': typeof body === 'object' && !Buffer.isBuffer(body) ? 'application/json' : (headers['Content-Type'] || 'text/plain'), 'Cache-Control': 'no-store', ...headers });
   res.end(data);
 }
-function readBody(req) {
+function readBody(req, limit = 1e6) {
   return new Promise((resolve, reject) => {
     let n = 0; const chunks = [];
-    req.on('data', c => { n += c.length; if (n > 1e6) { reject(new Error('body too large')); req.destroy(); } chunks.push(c); });
+    req.on('data', c => { n += c.length; if (n > limit) { reject(new Error('body too large')); req.destroy(); } chunks.push(c); });
     req.on('end', () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}); } catch { resolve({}); } });
     req.on('error', reject);
   });
@@ -73,6 +76,31 @@ function attackerOf(req) {
 }
 const clientIp = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'na').split(',')[0].trim();
 const reqBind = req => tokens.bindingOf(req.headers['user-agent'], req.headers['accept-language'], clientIp(req));
+const uaHash = req => crypto.createHash('sha256').update(String(req.headers['user-agent'] || '')).digest('base64url').slice(0, 10);
+const netMeta = req => ({ ua: req.headers['user-agent'] || '', acceptLanguage: req.headers['accept-language'] || '', secFetch: req.headers['sec-fetch-mode'] !== undefined });
+function netPrefix(ip) {
+  const v4 = /(\d+\.\d+\.\d+)\.\d+$/.exec(String(ip));
+  return v4 ? v4[1] : String(ip).split(':').slice(0, 3).join(':');
+}
+// How long after it starts a challenge can still be answered: its own length
+// plus a short grace. Solver queues that relay a task take 10-40 s.
+const ACTIVE_GRACE_MS = Number(process.env.POP_ACTIVE_GRACE_MS) || 6000;
+function maxAnswerMs(type, P) {
+  if (type === 'ring' || type === 'pulse') return P.durationMs + ACTIVE_GRACE_MS;
+  if (type === 'reflex' || type === 'clash') return P.totalMs + ACTIVE_GRACE_MS;
+  if (type === 'beat') return P.beats[P.beats.length - 1] + 800 + ACTIVE_GRACE_MS;
+  if (type === 'targets') return P.timeoutMs + 2000;
+  if (type === 'voice') return P.cadence.reduce((a, b) => a + b, 0) + 15000;
+  return 60000;
+}
+function cors(req, res) {
+  const o = req.headers.origin;
+  if (!o) return;
+  res.setHeader('Access-Control-Allow-Origin', o);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+}
 
 // ---------- challenge sessions ----------
 // Sessions are stateless: a signed payload carries the params, so a submit
@@ -201,8 +229,33 @@ route('POST', '/api/challenge/start', async (req, res) => {
   } else {
     return send(res, 400, { error: 'bad_type', reason: 'type must be one of ring, beat, reflex, pulse, clash, targets, voice or auto' });
   }
-  const session = signSession({ id, type, params, iat: Date.now() });
-  send(res, 200, { session, type, params, expires_in_ms: SESSION_TTL, auto: body.type === 'auto' });
+  // Hidden schedule: the ring's jumps and the pulse's flashes are not
+  // published up front. The browser learns each one only when it happens,
+  // through /api/challenge/cue, so nothing can be computed or recorded ahead.
+  let publicParams = params, sealed = null;
+  if (type === 'ring') { sealed = { kind: 'dart', items: params.darts }; publicParams = { ...params, cues: true, dartCount: params.darts.length }; delete publicParams.darts; }
+  if (type === 'pulse') { sealed = { kind: 'flash', items: params.flashes.map(at => ({ at })) }; publicParams = { ...params, cues: true, flashCount: params.flashes.length }; delete publicParams.flashes; }
+  const net = shield.networkRisk(netMeta(req));
+  const sess = { id, type, params: publicParams, iat: Date.now(), net: net.score, nr: net.reasons.slice(0, 2), uah: uaHash(req) };
+  if (sealed) sess.enc = seal(sealed);
+  if (typeof body.form_hash === 'string' && /^[a-f0-9]{64}$/i.test(body.form_hash)) sess.form = body.form_hash.toLowerCase();
+  send(res, 200, { session: signSession(sess), type, params: publicParams, active_window_ms: maxAnswerMs(type, publicParams), auto: body.type === 'auto' });
+});
+
+// ---------- live cues for the hidden schedule ----------
+const CUE_WINDOW_MS = 1500;
+const cueSig = (sid, kind, i, srv) => crypto.createHmac('sha256', SESSION_SECRET).update(`cue:${sid}:${kind}:${i}:${srv}`).digest('base64url').slice(0, 22);
+route('POST', '/api/challenge/cue', async (req, res) => {
+  if (!rateLimit('cue:' + clientIp(req), 3000)) return send(res, 429, { error: 'rate_limited' });
+  const body = await readBody(req);
+  const sess = readSession(body.session);
+  const sealed = sess && sess.enc ? unseal(sess.enc) : null;
+  if (!sealed) return send(res, 410, { error: 'session_gone', reason: 'Start a fresh challenge.' });
+  const srv = Date.now() - sess.iat;
+  const cues = sealed.items.map((it, i) => ({ it, i }))
+    .filter(({ it }) => srv >= it.at && srv <= it.at + CUE_WINDOW_MS)
+    .map(({ it, i }) => ({ kind: sealed.kind, i, srv, r: cueSig(sess.id, sealed.kind, i, srv), ...(sealed.kind === 'dart' ? { px: it.px, py: it.py } : {}) }));
+  send(res, 200, { cues, srv, done: srv > Math.max(...sealed.items.map(x => x.at)) + CUE_WINDOW_MS });
 });
 
 route('POST', '/api/challenge/submit', async (req, res) => {
@@ -229,14 +282,46 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   else if (sess.type === 'clash') minMs = 0.7 * sess.params.totalMs;
   else if (sess.type === 'targets') minMs = 2000;
   const tooFast = elapsedMs < minMs;
+  const extraHard = [];
+
+  // Out-of-band solver queues take 10-40 s; a live session answers in its own length.
+  const maxMs = maxAnswerMs(sess.type, sess.params);
+  if (elapsedMs > maxMs) extraHard.push('answered ' + (elapsedMs / 1000).toFixed(1) + ' s after the challenge started; it runs ' + Math.round((maxMs - ACTIVE_GRACE_MS) / 1000) + ' s: a relayed or queued solve, not a live session');
+
+  // Rebuild the hidden schedule on the browser's own timeline from the signed
+  // cue receipts. A run that never fetched its cues was scripted in advance.
+  let P = sess.params;
+  if (sess.enc) {
+    const sealed = unseal(sess.enc);
+    const got = Array.isArray(body.cues) ? body.cues.slice(0, 20) : [];
+    const applied = sealed.items.map((it, i) => {
+      const c = got.find(x => x && x.kind === sealed.kind && x.i === i);
+      if (!c) return null;
+      const srv = Number(c.srv), at = Number(c.appliedAt);
+      if (!Number.isFinite(srv) || !Number.isFinite(at) || cueSig(sess.id, sealed.kind, i, srv) !== c.r) return null;
+      if (srv < it.at || srv > it.at + CUE_WINDOW_MS) return null;
+      if (Math.abs(at - srv) > 700) return null; // the browser's clock must agree with the server's receipt
+      return Math.round(at);
+    });
+    const missing = applied.filter(x => x === null).length;
+    if (missing) extraHard.push('missing ' + missing + ' of ' + applied.length + ' live ' + (sealed.kind === 'dart' ? 'jump' : 'flash') + ' signals: the run was scripted or replayed, not reacting live');
+    if (sealed.kind === 'dart') P = { ...P, darts: sealed.items.map((it, i) => ({ at: applied[i] ?? it.at, px: it.px, py: it.py })) };
+    else P = { ...P, flashes: sealed.items.map((it, i) => applied[i] ?? it.at) };
+  }
+
+  // The connection's own evidence counts toward the verdict.
+  const netNow = shield.networkRisk(netMeta(req));
+  const netScore = Math.max(sess.net || 0, netNow.score);
+  if (sess.uah && sess.uah !== uaHash(req)) extraHard.push('started in one browser and answered from another: a relayed challenge');
+  if (netScore >= 55) extraHard.push('the connection looks automated: ' + (netNow.reasons[0] || (sess.nr || [])[0] || 'network signals'));
 
   // Automation probes from the client environment (navigator.webdriver etc).
   const env = body.env || {};
   const webdriver = env.webdriver === true;
 
   let result;
-  if (sess.type === 'pulse') result = scoring.scorePulse(sess.params, body.samples, body.clicks);
-  else if (sess.type === 'ring') result = scoring.scoreRingDarts(sess.params, body.samples);
+  if (sess.type === 'pulse') result = scoring.scorePulse(P, body.samples, body.clicks);
+  else if (sess.type === 'ring') result = scoring.scoreRingDarts(P, body.samples);
   else if (sess.type === 'beat') result = scoring.scoreBeat(sess.params.beats, body.taps);
   else if (sess.type === 'reflex') result = scoring.scoreReflex(sess.params.rounds, body.clicks);
   else if (sess.type === 'clash') result = scoring.scoreClash(sess.params, body.responses);
@@ -245,8 +330,10 @@ route('POST', '/api/challenge/submit', async (req, res) => {
 
   if (tooFast) { result.score = Math.min(result.score, 10); result.flags.push('answered in ' + Math.round(elapsedMs) + ' ms for a challenge that runs ' + Math.round(minMs / 0.7) + ' ms: computed, not performed'); }
   if (webdriver) { result.score = Math.min(result.score, 10); result.flags.push('browser reports it is under automation control (navigator.webdriver)'); }
+  if (extraHard.length) { result.score = Math.min(result.score, 10); result.flags.unshift(...extraHard); }
+  if (!extraHard.length && netScore >= 30) { result.score -= 15; result.flags.push('unusual connection: ' + (netNow.reasons[0] || 'network signals')); }
 
-  const hardFlag = (result.hard && result.hard.length) || result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control|one task at a time/.test(f));
+  const hardFlag = extraHard.length || (result.hard && result.hard.length) || result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control|one task at a time/.test(f));
   const passed = result.score >= 60 && !tooFast && !webdriver && !hardFlag;
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
   await arena('captchame:' + sess.type, attacker, passed);
@@ -256,7 +343,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
     const rec = await ledger.ensureActor(actorId, 'anonymous');
     rec.kind = 'human';
     await ledger.grant(actorId, ledger.DEFAULTS.human, 'presence verified (+' + '$2.00)');
-    const pass = tokens.mint(actorId, 'human', reqBind(req));
+    const pass = tokens.mint(actorId, 'human', reqBind(req), { form: sess.form || body.form_hash, via: sess.type });
     res.setHeader('Set-Cookie', ['pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax', 'cm_pass=1; Path=/; SameSite=Lax; Max-Age=3600']);
     await bump('humans');
     await logEvent('pass', `Human verified via ${sess.type} (score ${result.score})`, { lane: sess.type, score: result.score, attacker });
@@ -369,14 +456,42 @@ async function shieldRespond(req, res, verdictObj, page, attacker) {
     await bump('scrapersStopped');
     return send(res, 429, { error: 'blocked', reason: 'This looks like automated scraping: ' + verdictObj.reasons.slice(0, 3).join('; ') + '.', appeal_url: '/appeal?actor=' + encodeURIComponent(verdictObj.key), declare_url: '/agent' }, hdr);
   }
-  if (verdictObj.decision === 'decoy') { await bump('scrapersStopped'); return send(res, 200, shield.decoy(page, verdictObj.key), hdr); }
-  if (verdictObj.delayMs) await new Promise(r => setTimeout(r, verdictObj.delayMs));
+  if (verdictObj.decision === 'decoy') { await bump('scrapersStopped'); return send(res, 200, shield.decoy(page, verdictObj.key), { ...hdr, 'Cache-Control': 'public, max-age=3600' }); }
+  if (verdictObj.decision === 'slow') {
+    // No server-side wait: the scraper is told to come back later.
+    return send(res, 429, { error: 'slow_down', reason: 'Requests are arriving faster than a person browses: ' + verdictObj.reasons.slice(0, 2).join('; ') + '.', retry_after_ms: verdictObj.retryAfterMs }, { ...hdr, 'Retry-After': String(Math.ceil(verdictObj.retryAfterMs / 1000)) });
+  }
   send(res, 200, shield.catalog(page), hdr);
 }
 route('GET', '/api/catalog', async (req, res) => {
   const page = parseInt(new URL(req.url, 'http://x').searchParams.get('page') || '1', 10) || 1;
-  const v = shield.assess(shieldMeta(req, { page }));
+  const wba = await webbotauth.verifyRequest(req);
+  const meta = shieldMeta(req, { page });
+  if (wba && wba.ok) meta.agent = true;
+  const v = shield.assess(meta);
   await shieldRespond(req, res, v, page, attackerOf(req));
+});
+
+// ---------- API: zero-install bot cost audit from access logs ----------
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    let n = 0; const chunks = [];
+    req.on('data', c => { n += c.length; if (n > limit) { reject(Object.assign(new Error('log too large (limit ' + Math.round(limit / 1e6) + ' MB)'), { status: 413 })); req.destroy(); } else chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+route('POST', '/api/audit/analyze', async (req, res) => {
+  if (!rateLimit('audit:' + clientIp(req), 30)) return send(res, 429, { error: 'rate_limited', reason: 'Too many audits. Wait a minute.' });
+  let text, opts = {};
+  try {
+    if (/application\/json/.test(req.headers['content-type'] || '')) { const b = await readBody(req, 8e6); text = b.log; opts = b; }
+    else { text = await readRaw(req, 8e6); const q = new URL(req.url, 'http://x').searchParams; opts = { costPer1k: q.get('cost_per_1k'), costPerGB: q.get('cost_per_gb') }; }
+  } catch (e) { return send(res, 413, { error: 'too_large', reason: e.message }); }
+  if (!text || !String(text).trim()) return send(res, 400, { error: 'empty', reason: 'Send access-log lines (combined log format or JSON lines).' });
+  const r = audit.analyze(text, opts);
+  await logEvent('audit', `Log audit: ${r.lines.toLocaleString()} requests, ${Math.round(r.automated.share * 100)}% automated`, { lane: 'audit' });
+  send(res, 200, r);
 });
 route('GET', '/api/catalog/item/:id', async (req, res, params) => {
   const id = decodeURIComponent(params.id);
@@ -398,7 +513,7 @@ route('POST', '/api/shield/check', async (req, res) => {
   if (!rateLimit('shield:' + clientIp(req), 600)) return send(res, 429, { error: 'rate_limited' });
   const b = await readBody(req);
   const v = shield.assess({ ip: String(b.ip || ''), ua: String(b.ua || ''), acceptLanguage: String(b.acceptLanguage || ''), js: !!b.js, vid: String(b.vid || ''), page: Number(b.page), honeypot: !!b.honeypot });
-  send(res, 200, { decision: v.decision, risk: v.score, reasons: v.reasons, delay_ms: v.delayMs, actor: v.key });
+  send(res, 200, { decision: v.decision, risk: v.score, reasons: v.reasons, retry_after_ms: v.retryAfterMs, actor: v.key });
 });
 
 // ---------- API: public stats ----------
@@ -414,7 +529,8 @@ route('GET', '/api/stats', async (req, res) => {
 route('POST', '/api/pass/verify', async (req, res) => {
   const body = await readBody(req) || {};
   const bind = body.user_agent ? tokens.bindingOf(body.user_agent, body.accept_language, body.remoteip) : null;
-  const v = tokens.verify(String(body.pass || body.pass_token || ''), { consume: false, bind });
+  const form = typeof body.form_hash === 'string' && /^[a-f0-9]{64}$/i.test(body.form_hash) ? body.form_hash.toLowerCase() : null;
+  const v = tokens.verify(String(body.pass || body.pass_token || ''), { consume: false, bind, form });
   if (!v.ok) {
     if (v.relayed) {
       await logEvent('replay', 'Relayed pass refused: earned in one browser, presented from another (solver-farm token relay)', { lane: 'token', attacker: attackerOf(req) });
@@ -423,7 +539,55 @@ route('POST', '/api/pass/verify', async (req, res) => {
     }
     return send(res, 200, { ok: false, reason: v.reason || 'invalid pass' });
   }
-  send(res, 200, { ok: true, subject: v.kind, actor: v.actor, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass', browser_bound: v.bound, browser_checked: v.bindChecked });
+  send(res, 200, { ok: true, subject: v.kind, actor: v.actor, via: v.via, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass', browser_bound: v.bound, browser_checked: v.bindChecked, form_bound: v.formBound, form_checked: v.formChecked });
+});
+
+// ---------- API: the invisible ladder (rung 1 and 1b) ----------
+const formOf = h => (typeof h === 'string' && /^[a-f0-9]{64}$/i.test(h) ? h.toLowerCase() : null);
+async function mintSilent(req, via, form, attacker, note) {
+  const actorId = 'human:' + crypto.randomBytes(6).toString('hex');
+  await ledger.ensureActor(actorId, 'human'); // starts with the $2.00 human allowance
+  await bump('checks'); await bump('humans');
+  await arena('captchame:' + via, attacker, true);
+  await logEvent('pass', note, { lane: via, attacker });
+  return tokens.mint(actorId, 'human', reqBind(req), { form, via });
+}
+route('POST', '/api/pass/silent', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('silent:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited', reason: 'Too many checks. Wait a minute.' });
+  const body = await readBody(req, 300000);
+  const r = passive.scorePassive(body.telemetry, shield.networkRisk(netMeta(req)));
+  const form = formOf(body.form_hash), attacker = attackerOf(req);
+  if (r.tier === 'pass') {
+    const pass = await mintSilent(req, 'silent', form, attacker, 'Invisible pass: ' + (r.evidence[0] || 'normal interaction'));
+    return send(res, 200, { tier: 'pass', pass_token: pass, evidence: r.evidence, detail: r.detail });
+  }
+  if (r.tier === 'nudge') {
+    const goAfterMs = 450 + Math.floor(Math.random() * 700);
+    const session = signSession({ id: crypto.randomBytes(12).toString('hex'), kind: 'nudge', goAfterMs, form, iat: Date.now() });
+    await logEvent('stepup', 'Invisible check unsure, one-second button check offered: ' + r.reasons[0], { lane: 'silent', attacker, flags: r.reasons });
+    return send(res, 200, { tier: 'nudge', session, params: { goAfterMs }, reasons: r.reasons, detail: r.detail });
+  }
+  await arena('captchame:silent', attacker, false);
+  await logEvent('stepup', 'Invisible check escalated to a full check: ' + r.reasons[0], { lane: 'silent', attacker, flags: r.reasons });
+  send(res, 200, { tier: 'challenge', reasons: r.reasons, detail: r.detail, challenge_url: '/check?embed=1&format=auto' + (form ? '&form=' + form : '') });
+});
+route('POST', '/api/pass/nudge', async (req, res) => {
+  cors(req, res);
+  const body = await readBody(req);
+  const sess = readSession(body.session);
+  if (!sess || sess.kind !== 'nudge') return send(res, 410, { error: 'session_gone', reason: 'The button check expired. Submit again.' });
+  if (doneSessions.has(sess.id)) return send(res, 409, { error: 'replay', reason: 'This button check was already used.' });
+  doneSessions.add(sess.id);
+  const attacker = attackerOf(req);
+  const r = Date.now() - sess.iat > 30000 ? { ok: false, reason: 'the button check expired' } : passive.scoreNudge({ goAfterMs: sess.goAfterMs }, body);
+  if (r.ok) {
+    const pass = await mintSilent(req, 'nudge', sess.form, attacker, 'Button check passed: ' + r.reason);
+    return send(res, 200, { tier: 'pass', pass_token: pass, reason: r.reason });
+  }
+  await arena('captchame:nudge', attacker, false);
+  await logEvent('stepup', 'Button check failed, full check required: ' + r.reason, { lane: 'nudge', attacker });
+  send(res, 200, { tier: 'challenge', reason: r.reason, challenge_url: '/check?embed=1&format=auto' + (sess.form ? '&form=' + sess.form : '') });
 });
 
 // ---------- API: voice STT via Sarvam (server-side key, capped) ----------
@@ -497,13 +661,39 @@ route('POST', '/api/agent/declare', async (req, res) => {
     return send(res, 403, { error: 'bad_signature', reason: 'Signature did not verify against the public key.' });
   }
   const keyHash = crypto.createHash('sha256').update(pubkey).digest('hex').slice(0, 12);
-  const actorId = 'agent:' + keyHash;
-  await ledger.ensureActor(actorId, 'agent');
-  const token = tokens.mint(actorId, 'agent');
+  // A fresh key costs nothing to make, so a key alone earns no budget of its
+  // own. Delegated: declared with a person's pass, it spends from that
+  // person's fair share. Unverified: every such key on the same network
+  // shares one small pool. (Agents that sign with Web Bot Auth are verified
+  // per operator instead; see /api/agent/whoami.)
+  let actorId, mode, budget, note;
+  const delegated = body.pass ? tokens.verify(String(body.pass), { consume: false, bind: reqBind(req) }) : null;
+  if (delegated && delegated.ok && delegated.kind === 'human') {
+    actorId = delegated.actor; mode = 'delegated';
+    const a = await ledger.getActor(actorId);
+    budget = a ? ledger.remaining(a) : 0;
+    note = 'Delegated to a verified person: this agent spends from their fair share, however many keys they use.';
+  } else {
+    actorId = 'agentpool:' + netPrefix(clientIp(req)); mode = 'pooled';
+    const a = await ledger.ensureActor(actorId, 'agent');
+    budget = ledger.remaining(a);
+    note = 'Unverified key: it shares one $' + ledger.DEFAULTS.agent.toFixed(2) + ' pool with every unverified key from your network. Declare with a person’s pass to use their share, or sign requests with Web Bot Auth for a verified operator budget.';
+  }
+  const token = tokens.mint(actorId, 'agent', null, { via: mode });
   await bump('agents');
   await arena('agent-lane', attackerOf(req), true);
-  await logEvent('agent', `Agent declared: ${(operator || 'unnamed operator').slice(0, 60)} (key ${keyHash}) - challenge skipped, own budget granted`, { lane: 'agent', attacker: attackerOf(req) });
-  send(res, 200, { result: 'declared', actor: actorId, agent_token: token, budget: ledger.DEFAULTS.agent, note: 'Declared agents skip the human checks and get their own fair-share budget.' });
+  await logEvent('agent', `Agent declared (${mode}): ${(operator || 'unnamed operator').slice(0, 60)} (key ${keyHash}) - challenge skipped, budget from ${mode === 'delegated' ? 'the person’s share' : 'the network pool'}`, { lane: 'agent', attacker: attackerOf(req) });
+  send(res, 200, { result: 'declared', mode, actor: actorId, agent_token: token, budget, note });
+});
+
+// Agent builders: check how this server sees your Web Bot Auth signature.
+route('GET', '/api/agent/whoami', async (req, res) => {
+  const v = await webbotauth.verifyRequest(req);
+  if (!v) return send(res, 200, { verified: false, reason: 'No Web Bot Auth signature on this request (Signature, Signature-Input and Signature-Agent headers).' });
+  if (!v.ok) return send(res, 401, { verified: false, reason: v.reason });
+  const actorId = 'agent:wba:' + v.agent;
+  const a = await ledger.ensureActor(actorId, 'verified');
+  send(res, 200, { verified: true, operator: v.agent, keyid: v.keyid, actor: actorId, budget: ledger.remaining(a) });
 });
 
 // ---------- API: protected demo resource (a fake paid AI API) ----------
@@ -511,7 +701,13 @@ route('GET', '/api/protected/quote', async (req, res) => {
   const jar = cookies(req);
   const auth = req.headers.authorization || '';
   let actorId, kind;
-  if (auth.startsWith('Bearer ')) {
+  const wba = await webbotauth.verifyRequest(req);
+  if (wba && !wba.ok) return send(res, 401, { error: 'bad_agent_signature', reason: 'Web Bot Auth signature did not verify: ' + wba.reason });
+  if (wba && wba.ok) {
+    actorId = 'agent:wba:' + wba.agent; kind = 'agent';
+    if (!(await ledger.getActor(actorId))) await logEvent('agent', `Verified signed agent: ${wba.agent} (Web Bot Auth) - operator budget opened`, { lane: 'agent', attacker: attackerOf(req) });
+    await ledger.ensureActor(actorId, 'verified');
+  } else if (auth.startsWith('Bearer ')) {
     // A fresh verification pass or agent token authorises one call and also
     // tops up the actor. After that the cookie-backed actor id carries the budget.
     const v = tokens.verify(auth.slice(7), { consume: false, bind: reqBind(req) });
@@ -620,6 +816,7 @@ function serveStatic(req, res) {
 
 const handler = async (req, res) => {
   const u = new URL(req.url, 'http://x');
+  if (req.method === 'OPTIONS' && u.pathname.startsWith('/api/pass/')) { cors(req, res); res.writeHead(204); return res.end(); }
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = r.rx.exec(u.pathname);

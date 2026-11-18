@@ -6,7 +6,7 @@ export const metadata = { title: 'Live dry run' };
 export default function Page() {
   return (<>
     <PageHead kicker="Dry run" title="Rehearse the whole demo in one click">
-      Eighteen scripted scenarios against this live server: synthetic humans that should pass and every class of attacker that should not, from path-reading scripts to relayed tokens and scrapers. Run it before you go on stage; every result also lands in analytics and on the arena scoreboard as &quot;dry run&quot;.
+      Twenty-two scripted scenarios against this live server: synthetic humans that should pass, invisibly or through a check, and every class of attacker that should not, from replayed traces and path-reading scripts to relayed tokens, pasted passes and scrapers. Run it before you go on stage; every result also lands in analytics and on the arena scoreboard as &quot;dry run&quot;.
     </PageHead>
 
     <div className="grid dry">

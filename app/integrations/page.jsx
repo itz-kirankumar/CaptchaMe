@@ -3,42 +3,55 @@ import ScriptEngine from '../../components/ScriptEngine';
 import PageHead from '../../components/PageHead';
 export const metadata = { title: 'Integrations' };
 
+const HASH_NODE = `// The same canonical form hash the widget computes in the browser:
+// SHA-256 of the sorted [name, value] pairs, without the pass field.
+const crypto = require('crypto');
+function formHash(fields) {
+  const pairs = Object.entries(fields)
+    .filter(([k, v]) => k !== 'cm_pass' && typeof v === 'string')
+    .sort(([a, x], [b, y]) => (a < b ? -1 : a > b ? 1 : x < y ? -1 : x > y ? 1 : 0));
+  return crypto.createHash('sha256').update(JSON.stringify(pairs)).digest('hex');
+}`;
+
 const SNIPPETS = [
-  ['html', 'HTML widget', `<!-- 1. Put the check where your captcha sits today -->
+  ['html', 'HTML (invisible)', `<!-- Protect a form. Most people never see a check: the widget reads how the
+     form is filled (timings, never the keys) and asks only when it must. -->
 <form id="signup" method="post" action="/signup">
+  <input name="name" required>
   <input name="email" type="email" required>
-  <input name="pass" type="hidden">
-  <script src="{ORIGIN}/widget.js" data-site="your-site" data-onpass="onHuman"></script>
   <button type="submit">Create account</button>
 </form>
-<script>
-  function onHuman(d) { document.querySelector('[name=pass]').value = d.pass_token; }
-</script>`],
+<script src="{ORIGIN}/widget.js" data-form="#signup"></script>
+<!-- On submit the form gains a hidden field "cm_pass", bound to this browser
+     and to these exact form contents, then submits as normal. -->`],
   ['next', 'Next.js', `// app/api/signup/route.js : verify the pass before you accept the action
+${HASH_NODE}
+
 export async function POST(req) {
-  const form = await req.formData();
+  const form = Object.fromEntries(await req.formData());
   const r = await fetch('{ORIGIN}/api/pass/verify', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      pass: form.get('pass'),
+      pass: form.cm_pass,
+      form_hash: formHash(form),                 // refuses a pass pasted into another submission
       remoteip: req.headers.get('x-forwarded-for')?.split(',')[0],
-      user_agent: req.headers.get('user-agent'),
+      user_agent: req.headers.get('user-agent'), // refuses a pass relayed from another browser
       accept_language: req.headers.get('accept-language'),
     }),
   });
   const v = await r.json();
   if (!v.ok) return Response.json({ error: v.reason }, { status: 403 });
-  // v.subject is 'human' or 'agent'; v.browser_checked says the pass came from this browser
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, visitor: v.subject, via: v.via }); // via: silent | nudge | ring | ...
 }`],
-  ['express', 'Express', `// middleware: only verified humans (or declared agents) reach the route
+  ['express', 'Express', `${HASH_NODE}
+
 async function captchame(req, res, next) {
   const r = await fetch('{ORIGIN}/api/pass/verify', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      pass: req.body.pass, remoteip: req.ip,
+      pass: req.body.cm_pass, form_hash: formHash(req.body), remoteip: req.ip,
       user_agent: req.get('user-agent'), accept_language: req.get('accept-language'),
     }),
   });
@@ -49,16 +62,21 @@ async function captchame(req, res, next) {
 }
 app.post('/signup', express.urlencoded({ extended: false }), captchame, createAccount);`],
   ['python', 'Python', `# FastAPI (the same call works from Flask or Django)
-import httpx
-from fastapi import FastAPI, Form, Request, HTTPException
+import hashlib, json, httpx
+from fastapi import FastAPI, Request, HTTPException
 
 app = FastAPI()
 
+def form_hash(fields: dict) -> str:
+    pairs = sorted((k, v) for k, v in fields.items() if k != "cm_pass" and isinstance(v, str))
+    return hashlib.sha256(json.dumps([list(p) for p in pairs], separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
 @app.post("/signup")
-async def signup(request: Request, email: str = Form(...), pass_: str = Form(..., alias="pass")):
+async def signup(request: Request):
+    form = dict(await request.form())
     async with httpx.AsyncClient() as c:
         v = (await c.post("{ORIGIN}/api/pass/verify", json={
-            "pass": pass_,
+            "pass": form.get("cm_pass"), "form_hash": form_hash(form),
             "remoteip": request.client.host,
             "user_agent": request.headers.get("user-agent"),
             "accept_language": request.headers.get("accept-language"),
@@ -66,11 +84,12 @@ async def signup(request: Request, email: str = Form(...), pass_: str = Form(...
     if not v["ok"]:
         raise HTTPException(403, v["reason"])
     return {"ok": True, "visitor": v["subject"]}`],
-  ['edge', 'Scraper shield (edge)', `// Next.js middleware.js : ask the shield before serving a listing page
+  ['edge', 'Scraper shield (edge)', `// Next.js middleware.js : ask the shield before serving a listing page.
+// No server-side waiting: slowed scrapers get 429 + Retry-After and pay the wait.
 import { NextResponse } from 'next/server';
 
 export async function middleware(req) {
-  const r = await fetch('{ORIGIN}/api/shield/check', {
+  const s = await fetch('{ORIGIN}/api/shield/check', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -81,48 +100,64 @@ export async function middleware(req) {
       vid: req.cookies.get('cm_vid')?.value,
       page: Number(req.nextUrl.searchParams.get('page')),
     }),
-  });
-  const s = await r.json(); // { decision: allow|slow|decoy|block, risk, reasons, delay_ms }
-  if (s.decision === 'block') return NextResponse.json({ error: s.reasons.join('; ') }, { status: 429 });
-  if (s.decision === 'decoy') return NextResponse.rewrite(new URL('/decoy' + req.nextUrl.pathname, req.url));
+  }).then(r => r.json()); // { decision: allow|slow|decoy|block|agent, risk, reasons, retry_after_ms }
+
+  if (s.decision === 'block')
+    return NextResponse.json({ error: s.reasons.join('; '), appeal_url: '/appeal' }, { status: 429 });
+  if (s.decision === 'slow')
+    return NextResponse.json({ error: 'slow_down', retry_after_ms: s.retry_after_ms },
+      { status: 429, headers: { 'Retry-After': String(Math.ceil(s.retry_after_ms / 1000)) } });
+  if (s.decision === 'decoy')   // a cached decoy page carrying a canary record
+    return NextResponse.rewrite(new URL('/decoy' + req.nextUrl.pathname, req.url));
   return NextResponse.next();
 }
 export const config = { matcher: ['/products/:path*', '/api/listings/:path*'] };`],
-  ['curl', 'cURL', `# start a challenge, submit telemetry, verify the pass
-curl -s -X POST {ORIGIN}/api/challenge/start -H 'content-type: application/json' -d '{"type":"auto"}'
-curl -s -X POST {ORIGIN}/api/challenge/submit -H 'content-type: application/json' -d '{"session":"...","samples":[...]}'
-curl -s -X POST {ORIGIN}/api/pass/verify -H 'content-type: application/json' \\
-  -d '{"pass":"...","remoteip":"203.0.113.9","user_agent":"Mozilla/5.0 ..."}'
+  ['agent', 'AI agents', `// 1) Verified operators: sign requests with Web Bot Auth (HTTP Message
+//    Signatures). Publish your Ed25519 key at
+//    https://your-agent.example/.well-known/http-message-signatures-directory
+//    and send on every request:
+//      Signature-Agent: "https://your-agent.example"
+//      Signature-Input: sig1=("@authority" "signature-agent");created=...;expires=...;keyid="<JWK thumbprint>";alg="ed25519";tag="web-bot-auth"
+//      Signature: sig1=:<base64>:
+//    Check how this server sees you:  GET {ORIGIN}/api/agent/whoami
+//    Verified operators get their own budget; no registration call.
 
-# ask the scraper shield about a request
-curl -s -X POST {ORIGIN}/api/shield/check -H 'content-type: application/json' \\
-  -d '{"ip":"203.0.113.9","ua":"python-requests/2.32","acceptLanguage":"","js":false,"page":4}'`],
-  ['agent', 'AI agent lane', `// An honest agent declares itself instead of solving a puzzle (Node 18+)
+// 2) A person's own agent: declare a key with that person's pass. It spends
+//    from their fair share, however many keys it uses (Node 18+).
 const { generateKeyPairSync, sign } = require('crypto');
 const { publicKey, privateKey } = generateKeyPairSync('ed25519');
 const pubkey = publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
-
 const { nonce } = await (await fetch('{ORIGIN}/api/agent/nonce', { method: 'POST' })).json();
 const signature = sign(null, Buffer.from(nonce), privateKey).toString('base64');
 const d = await (await fetch('{ORIGIN}/api/agent/declare', {
   method: 'POST', headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ pubkey, signature, nonce, operator: 'acme-shopping-agent' }),
-})).json();
-
-// d.agent_token: send as "Authorization: Bearer <token>"; the agent spends its own capped budget
+  body: JSON.stringify({ pubkey, signature, nonce, operator: 'ada-assistant', pass: PERSONS_PASS }),
+})).json();   // d.mode: "delegated"; without a pass: "pooled" (one small pool per network)
 await fetch('{ORIGIN}/api/protected/quote', { headers: { authorization: 'Bearer ' + d.agent_token } });`],
+  ['curl', 'cURL', `# zero-install audit: what bots and scrapers cost you, from an access log
+curl --data-binary @access.log "{ORIGIN}/api/audit/analyze?cost_per_1k=0.40&cost_per_gb=0.09"
+
+# ask the scraper shield about one request
+curl -s -X POST {ORIGIN}/api/shield/check -H 'content-type: application/json' \\
+  -d '{"ip":"203.0.113.9","ua":"python-requests/2.32","acceptLanguage":"","js":false,"page":4}'
+
+# verify a pass for this browser and this form
+curl -s -X POST {ORIGIN}/api/pass/verify -H 'content-type: application/json' \\
+  -d '{"pass":"...","form_hash":"<sha256>","remoteip":"203.0.113.9","user_agent":"Mozilla/5.0 ..."}'`],
 ];
 
 const ENDPOINTS = [
-  ['POST', '/api/challenge/start', 'Start a check: ring, clash, targets, reflex, pulse, beat, voice, or auto (server picks).'],
-  ['POST', '/api/challenge/submit', 'Submit telemetry. Returns a HUMAN or BOT verdict, a score, the reasons and a pass bound to this browser.'],
-  ['POST', '/api/pass/verify', 'Your server checks a pass. Send remoteip, user_agent and accept_language to refuse relayed tokens.'],
-  ['POST', '/api/shield/check', 'Your edge asks about a request: allow, slow, decoy or block, with reasons.'],
-  ['GET', '/api/catalog?page=N', 'The demo listing protected by the shield.'],
-  ['POST', '/api/agent/nonce', 'Agent lane, step 1: get a nonce.'],
-  ['POST', '/api/agent/declare', 'Agent lane, step 2: send the Ed25519 signature; get an agent token with its own budget.'],
+  ['POST', '/api/pass/silent', 'Rung 1: the widget sends how a form was filled (timings, no values). Answer: pass, nudge or challenge.'],
+  ['POST', '/api/pass/nudge', 'Rung 1b: the hold-and-release button check.'],
+  ['POST', '/api/pass/verify', 'Your server checks a pass. Send form_hash to refuse pasted passes, and remoteip, user_agent, accept_language to refuse relayed ones.'],
+  ['POST', '/api/challenge/start', 'Rung 3: start a live check (ring, clash, targets, reflex, pulse, beat, voice, or auto). Answer within its length plus 6 s.'],
+  ['POST', '/api/challenge/cue', 'Rung 3: the ring’s jumps and the pulse’s flashes, revealed live with signed receipts.'],
+  ['POST', '/api/challenge/submit', 'Rung 3: submit telemetry and cue receipts; get HUMAN or BOT, the reasons, and a bound pass.'],
+  ['POST', '/api/shield/check', 'Your edge asks about a request: allow, slow (429), decoy or block, with reasons.'],
+  ['POST', '/api/audit/analyze', 'Zero-install audit: send access-log text, get the cost of automated traffic by type.'],
+  ['GET', '/api/agent/whoami', 'Agents: check a Web Bot Auth signature and see the operator budget.'],
+  ['POST', '/api/agent/declare', 'Agents: declare an Ed25519 key, delegated to a person’s pass or pooled per network.'],
   ['POST', '/api/appeal', 'Anyone capped or blocked can ask a human to review it.'],
-  ['GET', '/api/stats', 'Public counters: checks, humans, bots caught, agents, scraper requests stopped.'],
   ['GET', '/api/admin/events', 'Admin: the event stream behind the console and analytics (X-Admin-Key).'],
 ];
 
@@ -139,8 +174,8 @@ const PLATFORMS = [
 
 export default function Page() {
   return (<>
-    <PageHead kicker="Integrations" title="Ten minutes from script tag to protected">
-      A widget on the page, one verify call on your server, and an optional edge check for scrapers. Every snippet below runs against this server today.
+    <PageHead kicker="Integrations" title="One script tag, one verify call">
+      Protect a form with the invisible widget, verify the pass on your server against the visitor&apos;s browser and the exact form contents, and optionally ask the scraper shield at the edge. Every snippet below runs against this server today.
     </PageHead>
 
     <div className="card" id="snips" style={{ padding: 0, overflow: 'hidden' }}>
@@ -172,7 +207,7 @@ export default function Page() {
           </div>
           <div className="card">
             <h2>Try it before you wire it</h2>
-            <p><a href="/demo.html">Northwind Books</a> is a mock storefront using the exact script tag above: checkout stays locked until a human passes. Watch the result in the <Link href="/dashboard">console</Link>.</p>
+            <p><a href="/demo.html">Northwind Books</a> is a mock storefront protected with the one-line invisible widget. Or start with the <Link href="/audit">free log audit</Link> to see what bots cost you today.</p>
           </div>
         </div>
       </div>

@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import Logo from './Logo';
 
 export const LINKS = [
-  ['/check', 'Formats'],
+  ['/check', 'Risk ladder'],
+  ['/audit', 'Audit'],
   ['/live', 'Live run'],
   ['/arena', 'Arena'],
   ['/scraper', 'Scraper shield'],

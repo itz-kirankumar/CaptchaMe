@@ -11,15 +11,36 @@
   const waitFor = (type, P) => ({ ring: 0.75 * (P.durationMs || 0), pulse: 0.75 * (P.durationMs || 0), reflex: 0.75 * (P.totalMs || 0), beat: 0.75 * ((P.beats || [0]).slice(-1)[0] + 800), clash: 0.75 * (P.totalMs || 0), targets: 2100 }[type] || 0);
   const shared = {};
 
+  // Ring jumps and pulse flashes arrive live; poll for them while the check runs.
+  async function collectCues(s) {
+    const P = s.body.params, want = P.dartCount || P.flashCount || 0, got = new Map(), t0 = performance.now();
+    while (got.size < want && performance.now() - t0 < P.durationMs + 2000) {
+      const c = await post('/api/challenge/cue', { session: s.body.session });
+      for (const cue of (c.body && c.body.cues) || []) if (!got.has(cue.i)) got.set(cue.i, { ...cue, appliedAt: Math.round(performance.now() - t0) });
+      await sleep(140);
+    }
+    const cues = [...got.values()].sort((a, b) => a.i - b.i);
+    const live = { ...P };
+    if (P.dartCount) live.darts = cues.map(c => ({ at: c.appliedAt, px: c.px, py: c.py }));
+    if (P.flashCount) live.flashes = cues.map(c => c.appliedAt);
+    return { cues, live };
+  }
   // One live challenge: start, build the payload from the actor, wait the real time, submit.
-  async function challenge(type, payload, wait = true) {
+  async function challenge(type, payload, wait = true, useCues = true) {
     const s = await post('/api/challenge/start', { type });
     if (s.status !== 200) return { ok: false, got: 'could not start: ' + (s.body.reason || s.status) };
-    const body = payload(s.body.params);
-    if (wait) await sleep(waitFor(type, s.body.params));
-    const r = await post('/api/challenge/submit', { session: s.body.session, ...body });
+    const t0 = performance.now();
+    let P = s.body.params, cues;
+    if (P.cues && wait && useCues) { const c = await collectCues(s); P = c.live; cues = c.cues; }
+    else if (P.cues) P = { ...P, darts: P.dartCount ? [] : undefined, flashes: P.flashCount ? [] : undefined };
+    const body = payload(P);
+    if (wait) await sleep(Math.max(0, waitFor(type, s.body.params) - (performance.now() - t0)));
+    const r = await post('/api/challenge/submit', { session: s.body.session, ...body, ...(cues ? { cues } : {}) });
     return r.body;
   }
+  function typing(n) { const k = []; for (let i = 0; i < n; i++) k.push({ d: Math.round(70 + Math.random() * 90), f: i ? Math.round(60 + Math.random() * 260) : null }); return k; }
+  function approach() { const p = []; for (let k = 0; k <= 30; k++) { const u = k / 30, m = 10 * u ** 3 - 15 * u ** 4 + 6 * u ** 5; p.push({ t: 9000 + k * 16, x: Math.round(100 + 400 * m), y: Math.round(500 - 200 * m + Math.sin(u * 3) * 8) }); } return p; }
+  async function sha256(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
   const expectPass = (type, payload) => async () => {
     const b = await challenge(type, payload);
     if (b.pass_token) shared.pass = b.pass_token;
@@ -43,6 +64,25 @@
     { g: 1, name: 'Timer clicks every flash', exp: 'BOT: identical reaction times', run: expectFail('reflex', P => ({ clicks: A.scriptReflex(P.rounds) })) },
     { g: 1, name: 'Metronome taps the beat', exp: 'BOT: machine-perfect timing', run: expectFail('beat', P => ({ taps: A.scriptBeat(P.beats) })) },
     { g: 1, name: 'Human-shaped data, submitted instantly', exp: 'BOT: computed, not performed', run: expectFail('ring', P => ({ samples: A.adaptiveRing(P) }), false) },
+    { g: 1, name: 'Replayed human trace that never listens for live jumps', exp: 'BOT: missing the live jump signals', run: async () => {
+      const b = await challenge('ring', P => ({ samples: A.humanRing({ ...P, darts: [] }, 4) }), true, false);
+      return { ok: b.result === 'fail' && (b.flags || []).some(f => /live jump signals/.test(f)), got: (b.result || 'error').toUpperCase() + ' · ' + ((b.flags && b.flags[0]) || '') };
+    } },
+    { g: 2, name: 'Person fills a form (invisible pass)', exp: 'passes silently, no check shown', run: async () => {
+      const form = await sha256(JSON.stringify([['email', 'ada@example.com']]));
+      const r = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 9400, fields: [{ keys: typing(14), chars: 14 }], pointer: approach(), pointerType: 'mouse', trustedSubmit: true, env: {} }, form_hash: form });
+      shared.silent = r.body.pass_token; shared.form = form;
+      return { ok: r.body.tier === 'pass', got: (r.body.tier || 'error').toUpperCase() + ' · ' + ((r.body.evidence && r.body.evidence[0]) || (r.body.reasons && r.body.reasons[0]) || '') };
+    } },
+    { g: 2, name: 'Script fills the form instantly', exp: 'steps up to a full check', run: async () => {
+      const r = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 350, fields: [{ keys: [], chars: 15 }], pointer: [], trustedSubmit: false, env: {} } });
+      return { ok: r.body.tier === 'challenge', got: (r.body.tier || 'error').toUpperCase() + ' · ' + ((r.body.reasons && r.body.reasons[0]) || '') };
+    } },
+    { g: 2, name: 'Silent pass pasted into a different form', exp: 'refused: different form submission', run: async () => {
+      if (!shared.silent) return { ok: false, got: 'no silent pass from the row above' };
+      const r = await post('/api/pass/verify', { pass: shared.silent, form_hash: await sha256('some other submission') });
+      return { ok: r.body.ok === false && /different form/.test(r.body.reason || ''), got: (r.body.ok ? 'ACCEPTED' : 'REFUSED') + ' · ' + (r.body.reason || '') };
+    } },
     { g: 2, name: 'Replay a finished session', exp: '409 replay refused', run: async () => {
       const s = await post('/api/challenge/start', { type: 'beat' });
       await post('/api/challenge/submit', { session: s.body.session, taps: A.humanBeat(s.body.params.beats) });
@@ -72,14 +112,14 @@
         const pub = b64(await crypto.subtle.exportKey('spki', kp.publicKey));
         const n = await post('/api/agent/nonce', {});
         const sig = b64(await crypto.subtle.sign({ name: 'Ed25519' }, kp.privateKey, new TextEncoder().encode(n.body.nonce)));
-        const d = await post('/api/agent/declare', { pubkey: pub, signature: sig, nonce: n.body.nonce, operator: 'dry-run agent' });
+        const d = await post('/api/agent/declare', { pubkey: pub, signature: sig, nonce: n.body.nonce, operator: 'dry-run agent', pass: shared.silent });
         shared.agent = d.body.agent_token;
-        return { ok: d.body.result === 'declared', got: (d.body.result || 'failed') + ' · budget $' + (d.body.budget || 0).toFixed(2) };
+        return { ok: d.body.result === 'declared', got: (d.body.result || 'failed') + ' · ' + (d.body.mode || '') + ' · budget $' + (d.body.budget || 0).toFixed(2) };
       } catch (e) { return { ok: false, got: 'this browser lacks Ed25519 in WebCrypto: ' + e.message }; }
     } },
-    { g: 2, name: 'Agent spends to its fair-share cap', exp: '429 with a reason and an appeal link', run: async () => {
+    { g: 2, name: 'Delegated agent spends to its person’s cap', exp: '429 with a reason and an appeal link', run: async () => {
       if (!shared.agent) return { ok: false, got: 'no agent token from the row above' };
-      for (let i = 0; i < 20; i++) {
+      for (let i = 0; i < 45; i++) {
         const r = await fetch('/api/protected/quote', { credentials: 'omit', headers: { Authorization: 'Bearer ' + shared.agent } });
         if (r.status === 429) { const b = await r.json(); return { ok: !!b.appeal_url, got: 'capped after ' + i + ' calls · ' + b.reason.slice(0, 70) }; }
       }

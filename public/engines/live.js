@@ -26,6 +26,28 @@
   fmtSel.onchange = fillAttackers; atkSel.onchange = () => { document.getElementById('atkName').textContent = atkSel.selectedOptions[0].text; };
   fillAttackers();
 
+  // Ring jumps arrive live from the server during the run.
+  function livePoll(s) {
+    const t0 = performance.now(), P = { ...s.body.params, darts: [] }, cues = [], seen = new Set();
+    let stop = false;
+    (async () => {
+      while (!stop) {
+        try {
+          const r = await post('/api/challenge/cue', { session: s.body.session });
+          for (const c of r.body.cues || []) {
+            if (seen.has(c.i)) continue;
+            seen.add(c.i);
+            const at = Math.round(performance.now() - t0);
+            cues.push({ ...c, appliedAt: at }); P.darts.push({ at, px: c.px, py: c.py });
+          }
+          if (r.body.done) break;
+        } catch { /* keep polling */ }
+        await new Promise(res => setTimeout(res, 150));
+      }
+    })();
+    return { P, cues, stop() { stop = true; } };
+  }
+
   const duration = (fmt, P, pay) => fmt === 'ring' ? P.durationMs : fmt === 'reflex' ? P.totalMs : fmt === 'clash' ? P.totalMs : (pay.clicks.length ? pay.clicks[pay.clicks.length - 1].t + 400 : 3000);
 
   function drawFrame(cv, fmt, P, pay, t) {
@@ -34,8 +56,11 @@
     if (fmt === 'ring') {
       const g = A.targetAt(P, t);
       ctx.beginPath(); ctx.arc(g.x * W, g.y * H, 22, 0, 7); ctx.strokeStyle = v('--brand'); ctx.lineWidth = 3; ctx.stroke();
-      let cur = null; for (const s of pay.samples) { if (s.t <= t) cur = s; else break; }
-      if (cur) { ctx.beginPath(); ctx.arc(cur.x * W, cur.y * H, 7, 0, 7); ctx.fillStyle = v('--text'); ctx.fill(); }
+      // live preview: the bot sits on the target; the hand trails it by ~180 ms
+      const st = cv._st || (cv._st = { x: g.x, y: g.y });
+      if (cv._side === 'bot') { st.x = g.x; st.y = g.y; }
+      else { const lag = A.targetAt(P, Math.max(0, t - 180)); st.x += (lag.x - st.x) * 0.2 + (Math.random() - 0.5) * 0.004; st.y += (lag.y - st.y) * 0.2 + (Math.random() - 0.5) * 0.004; }
+      ctx.beginPath(); ctx.arc(st.x * W, st.y * H, 7, 0, 7); ctx.fillStyle = v('--text'); ctx.fill();
     } else if (fmt === 'targets') {
       const kx = W / P.field.w, ky = H / P.field.h;
       const idx = pay.clicks.findIndex(c => c.t > t);
@@ -96,9 +121,18 @@
     status.textContent = 'Two challenges started on the server...';
     const [sb, sh] = await Promise.all([post('/api/challenge/start', { type: fmt }), post('/api/challenge/start', { type: fmt })]);
     if (sb.status !== 200 || sh.status !== 200) { status.textContent = 'Could not start: ' + ((sb.body && sb.body.reason) || (sh.body && sh.body.reason) || 'error'); go.disabled = false; return; }
-    const botPay = atk[2](sb.body.params), humPay = HUMAN[fmt](sh.body.params);
-    status.textContent = 'Watch both sides...';
-    const [spB, spH] = await Promise.all([play(document.getElementById('botcv'), fmt, sb.body.params, botPay), play(document.getElementById('humcv'), fmt, sh.body.params, humPay)]);
+    const live = fmt === 'ring';
+    const pollB = live ? livePoll(sb) : null, pollH = live ? livePoll(sh) : null;
+    let botPay = live ? null : atk[2](sb.body.params), humPay = live ? null : HUMAN[fmt](sh.body.params);
+    status.textContent = live ? 'Watch both sides. The jumps arrive live from the server...' : 'Watch both sides...';
+    const bcv = document.getElementById('botcv'), hcv = document.getElementById('humcv');
+    bcv._side = 'bot'; hcv._side = 'human'; bcv._st = hcv._st = null;
+    const [spB, spH] = await Promise.all([play(bcv, fmt, live ? pollB.P : sb.body.params, botPay), play(hcv, fmt, live ? pollH.P : sh.body.params, humPay)]);
+    if (live) {
+      pollB.stop(); pollH.stop();
+      botPay = { ...atk[2](pollB.P), cues: pollB.cues };
+      humPay = { ...HUMAN.ring(pollH.P), cues: pollH.cues };
+    }
     if ((spB || 1) > 1 || (spH || 1) > 1) status.textContent = 'Played faster than real time for the slow side. Judging...';
     else status.textContent = 'Judging...';
     // the server enforces a real-time floor; make sure it has passed

@@ -16,13 +16,14 @@ export default function Home() {
   return (<>
     <section className="hero">
       <div>
-        <span className="badge"><span className="dot"></span>Live demo, judged by a real server</span>
-        <h1>Bots, go ahead.<br /><em>Try.</em></h1>
-        <p className="lede">Every classic captcha asks &quot;can you solve this?&quot; Solver farms, browser extensions and AI agents now answer yes, for under a cent. CaptchaMe asks what only a live body can answer, binds the pass to the browser that earned it, and caps what any one actor can take.</p>
+        <span className="badge"><span className="dot"></span>Traffic referee for people, AI agents and bots</span>
+        <h1>Know who&apos;s visiting.<br /><em>Cap what they take.</em></h1>
+        <p className="lede">Most visitors pass invisibly while they fill in a form. Scrapers are slowed, decoyed or blocked without holding your servers open. Honest agents get a signed lane. And every actor, even one that beats a check, is capped at a fair share in dollars.</p>
         <div className="cta-row">
-          <Link className="btn" href="/check">Prove you&apos;re human</Link>
-          <Link className="btn ghost" href="/arena">Open the arena</Link>
+          <Link className="btn" href="/audit">See what bots cost you</Link>
+          <Link className="btn ghost" href="/check">Try the invisible check</Link>
         </div>
+        <p className="note small">The audit reads the access logs you already have. Nothing to install.</p>
       </div>
       <div className="hero-visual">
         <canvas id="herocv" width="640" height="480" aria-label="A human cursor trails the moving ring with natural lag while a bot cursor sits exactly on it"></canvas>
@@ -63,9 +64,22 @@ export default function Home() {
     </section>
 
     <section className="block">
-      <span className="kicker">Formats</span>
-      <h2 className="section">Eight ways through one door</h2>
-      <p className="section-sub">Rotated per session and picked by the server in surprise mode. Each line in grey is the signal the server checks.</p>
+      <span className="kicker">The risk ladder</span>
+      <h2 className="section">A check only when the evidence asks for one</h2>
+      <p className="section-sub">Each rung costs the visitor more, so CaptchaMe climbs only as far as the signals demand.</p>
+      <div className="rungs">
+        <div className="rung on"><span className="rn">Rung 1 · most people</span><b>Invisible pass</b><p>Key-hold timing (never the keys), paste and autofill, the pointer&apos;s path, a real submit and the connection, read while the form is filled.</p></div>
+        <div className="rung"><span className="rn">Rung 1b · mild doubt</span><b>One-second button check</b><p>Hold the submit button, let go when it turns green.</p></div>
+        <div className="rung"><span className="rn">Rung 2 · agents</span><b>Signed agent lane</b><p>Web Bot Auth signatures, or a declared key that spends a person&apos;s share.</p></div>
+        <div className="rung"><span className="rn">Rung 3 · strong signals</span><b>Live step-up check</b><p>The formats below, with jumps that arrive live so nothing can be pre-computed.</p></div>
+      </div>
+      <p className="note"><Link href="/check">Try the ladder on a protected form</Link></p>
+    </section>
+
+    <section className="block">
+      <span className="kicker">Step-up checks</span>
+      <h2 className="section">When a check is needed: eight ways through</h2>
+      <p className="section-sub">Only for traffic whose signals contradict each other. Each line in grey is the signal the server checks.</p>
       <div className="formats">
         {FORMATS.map(([href, name, desc, sig, d]) => (
           <Link className="format" href={href} key={name}>
@@ -89,13 +103,13 @@ export default function Home() {
     <section className="block">
       <span className="kicker">For builders</span>
       <h2 className="section">Protect a form in three lines</h2>
-      <div className="codeblock"><span className="c">{'<!-- your page -->'}</span>{'\n'}{'<script src='}<span className="g">&quot;https://captchame.vercel.app/widget.js&quot;</span>{' data-site='}<span className="g">&quot;your-site&quot;</span>{'></script>'}{'\n\n'}<span className="c"># your server: check the pass against the visitor&apos;s browser</span>{'\n'}POST <span className="b">/api/pass/verify</span>{'  { pass, remoteip, user_agent }  '}<span className="c">{'# -> { ok, subject, browser_checked }'}</span></div>
+      <div className="codeblock"><span className="c">{'<!-- your page: protect the form, most people never see a check -->'}</span>{'\n'}{'<script src='}<span className="g">&quot;https://captchame.vercel.app/widget.js&quot;</span>{' data-form='}<span className="g">&quot;#signup&quot;</span>{'></script>'}{'\n\n'}<span className="c"># your server: check the pass against this browser and this exact form</span>{'\n'}POST <span className="b">/api/pass/verify</span>{'  { pass, form_hash, remoteip, user_agent }  '}<span className="c">{'# -> { ok, subject, form_checked }'}</span></div>
       <p className="note"><Link href="/integrations">Every integration, endpoint and SDK snippet</Link></p>
     </section>
 
-    <Link className="cta-big" href="/live">
-      <span><b>Watch a bot try and fail, live</b><small>Pick a format and an attacker. The real server judges both sides.</small></span>
-      <span className="go">Open live run</span>
+    <Link className="cta-big" href="/arena">
+      <span><b>Bots, go ahead. Try.</b><small>Point Buster, 2Captcha, CapSolver or a browser agent at the classic formats, then at CaptchaMe.</small></span>
+      <span className="go">Open the arena</span>
     </Link>
     <ScriptEngine srcs={['/engines/home.js']} />
   </>);

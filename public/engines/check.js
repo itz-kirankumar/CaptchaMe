@@ -4,11 +4,15 @@
   if (!app) return;
   const out = document.getElementById('out');
   const EMBED = new URLSearchParams(location.search).has('embed');
+  // When a protected form steps a visitor up to this check, the pass is bound
+  // to that form's exact contents (a SHA-256 the parent page computed).
+  const FORM = /^[a-f0-9]{64}$/i.test(new URLSearchParams(location.search).get('form') || '') ? new URLSearchParams(location.search).get('form').toLowerCase() : undefined;
   const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
   const col = n => cmVar(n);
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
 
   async function post(url, body) {
+    if (url === '/api/challenge/submit' && FORM) body = { ...body, form_hash: FORM };
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { status: r.status, body: await r.json() };
   }
@@ -50,10 +54,37 @@
     for (const d of (P.darts || [])) if (tms >= d.at) { px = d.px; py = d.py; }
     return { x: (0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + px)) * cv.width, y: (0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + py)) * cv.height };
   }
+  // The ring's jumps and the pulse's flashes arrive live from the server
+  // (they are not in the challenge), so the page polls for them as it runs.
+  function cuePoller(s, t0, onCue) {
+    const got = new Set(), cues = [];
+    let stop = false;
+    (async function poll() {
+      while (!stop) {
+        try {
+          const r = await post('/api/challenge/cue', { session: s.session });
+          for (const c of (r.body && r.body.cues) || []) {
+            if (got.has(c.kind + c.i)) continue;
+            got.add(c.kind + c.i);
+            const cue = { ...c, appliedAt: Math.round(performance.now() - t0) };
+            cues.push(cue); onCue(cue);
+          }
+          if (r.body && r.body.done) break;
+        } catch { /* keep polling */ }
+        await new Promise(res => setTimeout(res, 150));
+      }
+    })();
+    return { cues, stop() { stop = true; } };
+  }
+
   function track(cv, s, withFlashes) {
-    const P = s.params, ctx = cv.getContext('2d');
+    const P = { ...s.params, darts: [], flashes: [] }, ctx = cv.getContext('2d');
     const samples = [], clicks = [];
     const t0 = performance.now();
+    const poller = s.params.cues ? cuePoller(s, t0, c => {
+      if (c.kind === 'dart') P.darts.push({ at: c.appliedAt, px: c.px, py: c.py });
+      else P.flashes.push(c.appliedAt);
+    }) : { cues: [], stop() {} };
     let pos = null;
     const onMove = e => { pos = pointIn(cv, e); };
     const onClick = () => { const t = performance.now() - t0; if (withFlashes && t < P.durationMs) clicks.push(Math.round(t)); };
@@ -69,7 +100,8 @@
         if (t >= P.durationMs) {
           cv.removeEventListener('pointermove', onMove); cv.removeEventListener('touchmove', onMove);
           cv.removeEventListener('pointerdown', onClick); window.removeEventListener('keydown', onKey);
-          return resolve({ samples, clicks });
+          poller.stop();
+          return resolve({ samples, clicks, cues: poller.cues });
         }
         const g = lissajous(P, cv, t), h = hot(t);
         ctx.clearRect(0, 0, cv.width, cv.height);
@@ -100,8 +132,8 @@
   window.addEventListener('cm-theme', idleAll);
 
   const RUN = {
-    async ring(s) { const r = await track(ringCv, s, false); idle(ringCv, 'Judging...'); report(await post('/api/challenge/submit', { session: s.session, samples: r.samples, env: ENV })); idleAll(); },
-    async pulse(s) { const r = await track(pulseCv, s, true); idle(pulseCv, 'Judging...'); report(await post('/api/challenge/submit', { session: s.session, samples: r.samples, clicks: r.clicks, env: ENV })); idleAll(); },
+    async ring(s) { const r = await track(ringCv, s, false); idle(ringCv, 'Judging...'); report(await post('/api/challenge/submit', { session: s.session, samples: r.samples, cues: r.cues, env: ENV, form_hash: FORM })); idleAll(); },
+    async pulse(s) { const r = await track(pulseCv, s, true); idle(pulseCv, 'Judging...'); report(await post('/api/challenge/submit', { session: s.session, samples: r.samples, clicks: r.clicks, cues: r.cues, env: ENV, form_hash: FORM })); idleAll(); },
 
     async beat(s) {
       const zone = document.getElementById('tapzone');
