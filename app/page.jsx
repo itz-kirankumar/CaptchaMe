@@ -33,12 +33,18 @@ export default function Home() {
       <p className="th-more"><Link className="btn ghost" href="/layer2">Open the full layer 2 analysis</Link> <Link className="btn ghost" href="/try">Try the captchas by hand</Link></p>
     </section>
 
-    <div className="th-modal" id="runModal" hidden role="dialog" aria-modal="true" aria-label="Attack run">
-      <div className="th-sheet">
-        <div className="th-steps" id="thSteps"></div>
-        <div className="th-prog" id="thProg"></div>
-        <div className="th-body"><aside className="th-list" id="thList" aria-label="Steps"></aside><section className="th-main" id="thMain" aria-live="polite"></section></div>
-        <div className="th-foot"><span id="thStat">Starting...</span><span className="sp"></span><button className="btn ghost" id="thAgain" hidden>Run another</button><Link className="btn accent" href="/layer2">Open layer 2 analysis</Link></div>
+    <div className="rn-modal" id="runModal" hidden role="dialog" aria-modal="true" aria-label="Attack run">
+      <div className="rn-sheet">
+        <canvas className="rn-rain" id="rnRain" aria-hidden="true"></canvas>
+        <header className="rn-head">
+          <span className="rn-logo"><svg width="22" height="22" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" strokeOpacity=".3" strokeWidth="3" /><path d="M12.24 5.66A11 11 0 0 1 23.78 8.22" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /><circle cx="23.78" cy="8.22" r="3.4" fill="currentColor" /></svg></span>
+          <div><b id="rnTitle">Attack run</b><small>every line is read live from the server</small></div>
+          <button className="rn-x" id="rnClose" aria-label="Close">&times;</button>
+        </header>
+        <div className="rn-rail" id="rnRail"></div>
+        <div className="rn-step" id="rnStep"></div>
+        <div className="rn-term" id="rnTerm" aria-live="polite"></div>
+        <div className="rn-verdict" id="rnVerdict"></div>
       </div>
     </div>
     <ScriptEngine srcs={['/engines/layers.js', '/engines/home-run.js']} />
