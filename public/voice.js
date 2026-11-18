@@ -30,6 +30,15 @@ document.getElementById('start').addEventListener('click', async () => {
   if (r.status !== 200) { statusEl.textContent = 'Could not start: ' + (r.body.reason || r.status); return; }
   const { words, cadence } = r.body.params;
 
+  // record the whole check so the server can transcribe it (Sarvam), with the
+  // browser's own speech recognition as the fallback
+  let recorder = null, chunks = [];
+  try {
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.start(500);
+  } catch {}
+
   // speech recognition for the "what did they say" half
   let transcript = '';
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -88,6 +97,20 @@ document.getElementById('start').addEventListener('click', async () => {
 
   if (rec) { try { rec.stop(); } catch {} }
   await new Promise(res => setTimeout(res, 700)); // let final ASR results land
+
+  // prefer the server-side Sarvam transcript; fall back to Web Speech
+  let engine = rec ? 'web-speech' : 'none';
+  if (recorder && recorder.state !== 'inactive') {
+    try {
+      const blob = await new Promise(res2 => { recorder.onstop = () => res2(new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })); recorder.stop(); });
+      if (blob.size > 500) {
+        const b64 = await new Promise(res2 => { const fr = new FileReader(); fr.onload = () => res2(fr.result.split(',')[1]); fr.readAsDataURL(blob); });
+        statusEl.textContent = 'Transcribing...';
+        const stt = await post('/api/voice/stt', { session: r.body.session, audio: b64, mime: blob.type });
+        if (stt.status === 200 && stt.body.transcript) { transcript = ' ' + stt.body.transcript; engine = 'sarvam'; }
+      }
+    } catch {}
+  }
   stream.getTracks().forEach(tr => tr.stop());
   try { ac.close(); } catch {}
 
@@ -97,6 +120,7 @@ document.getElementById('start').addEventListener('click', async () => {
     wordTimings,
     transcript: transcript.trim(),
   });
+  statusEl.textContent = engine === 'sarvam' ? 'Transcribed by Sarvam on the server.' : 'Transcribed in your browser.';
   const passed = verdict(out, res, { redirect: true, failHint: 'You can retry here, or use the ring or beat path instead.' });
   if (passed) setTimeout(() => location.href = '/use.html', 2400);
   wordBox.textContent = 'Press start when ready';

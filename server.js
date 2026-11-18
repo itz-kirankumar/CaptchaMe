@@ -86,6 +86,11 @@ function readSession(token) {
   } catch { return null; }
 }
 
+const SARVAM_API_KEY = process.env.SARVAM_API_KEY || '';
+const sttUsedSessions = new Set();
+const sttDaily = { day: '', n: 0 };
+const STT_DAILY_CAP = 300;
+
 const VOICE_WORDS = ['mango', 'river', 'lantern', 'copper', 'window', 'falcon', 'harbor', 'pencil', 'thunder', 'garden', 'silver', 'bridge', 'marble', 'cloud', 'tiger', 'velvet', 'anchor', 'meadow', 'rocket', 'willow'];
 
 const rateBuckets = new Map();
@@ -193,6 +198,53 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   } else {
     logEvent('fail', `${sess.type} check failed (score ${result.score}): ${result.flags[0] || 'low score'}`, { lane: sess.type, score: result.score, flags: result.flags });
     send(res, 200, { result: 'fail', score: result.score, flags: result.flags, detail: result.detail, reason: result.flags[0] || 'The response did not look like a live person. Try again, or use another path.' });
+  }
+});
+
+// ---------- API: voice STT via Sarvam (server-side key, capped) ----------
+// One STT call per voice challenge session, plus a daily cap, so the demo
+// cannot burn the owner's Sarvam credits. The browser falls back to its
+// built-in speech recognition whenever this route says no.
+route('POST', '/api/voice/stt', async (req, res) => {
+  const body = await readBody(req);
+  const sess = readSession(body.session);
+  if (!sess || sess.type !== 'voice') return send(res, 410, { error: 'session_gone', reason: 'Start a fresh voice challenge.' });
+  if (sttUsedSessions.has(sess.id)) return send(res, 409, { error: 'stt_used', reason: 'This voice challenge already used its speech recognition call.' });
+  const today = new Date().toISOString().slice(0, 10);
+  if (sttDaily.day !== today) { sttDaily.day = today; sttDaily.n = 0; }
+  if (sttDaily.n >= STT_DAILY_CAP) return send(res, 429, { error: 'stt_daily_cap', reason: 'Speech recognition is capped for today; the browser fallback still works.' });
+  if (!SARVAM_API_KEY) return send(res, 503, { error: 'stt_not_configured', reason: 'Server speech recognition is not configured; use the browser fallback.' });
+  const audioB64 = typeof body.audio === 'string' ? body.audio : '';
+  if (audioB64.length < 100 || audioB64.length > 6 * 1024 * 1024) return send(res, 400, { error: 'bad_audio', reason: 'Audio missing or too large.' });
+
+  sttUsedSessions.add(sess.id);
+  sttDaily.n++;
+  try {
+    const buf = Buffer.from(audioB64, 'base64');
+    const fd = new FormData();
+    fd.append('file', new Blob([buf], { type: body.mime || 'audio/webm' }), 'audio.webm');
+    fd.append('model', 'saaras:v4');
+    fd.append('language_code', 'en-IN');
+    fd.append('keyterms', JSON.stringify(sess.params.words));
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    const r = await fetch('https://api.sarvam.ai/speech-to-text', {
+      method: 'POST',
+      headers: { 'api-subscription-key': SARVAM_API_KEY },
+      body: fd,
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      return send(res, 502, { error: 'stt_upstream', reason: 'Speech service error ' + r.status + '. Browser fallback still works.', upstream: txt.slice(0, 200) });
+    }
+    const j = await r.json();
+    const transcript = (j.transcript || j.text || '').trim();
+    logEvent('call', `Sarvam STT used for a voice check (#${sttDaily.n} today)`, { lane: 'voice' });
+    send(res, 200, { transcript, engine: 'sarvam' });
+  } catch (e) {
+    send(res, 502, { error: 'stt_failed', reason: 'Speech service unreachable. Browser fallback still works.' });
   }
 });
 
