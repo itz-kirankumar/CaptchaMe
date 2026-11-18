@@ -24,7 +24,8 @@ function verdict(outEl, res, opts) {
   sc.innerHTML = '<span>humanness score</span><div class="vbar"><i style="width:' + score + '%"></i></div><b>' + (b.score == null ? 0 : b.score) + '/100</b>';
   wrap.appendChild(sc);
 
-  const flags = (b.flags || []).slice(0, 4);
+  let flags = (b.flags || []).slice(0, 4);
+  if (!pass && !flags.length && b.reason) flags = [b.reason];
   if (!pass && flags.length) {
     const lab = document.createElement('div');
     lab.className = 'vwhylabel';
