@@ -1149,10 +1149,9 @@ route('GET', '/api/admin/abuseguard', async (req, res) => {
 });
 
 // ---------- layer 2: post-verification analysis ----------
-route('GET', '/api/layer2/overview', async (req, res) => { if (!adminOK(req)) return send(res, 403, { error: 'forbidden' }); send(res, 200, layer2.overview()); });
+route('GET', '/api/layer2/overview', async (req, res) => { send(res, 200, { ...layer2.overview({ demoOnly: !adminOK(req) }), view: adminOK(req) ? 'full' : 'demo' }); });
 route('GET', '/api/layer2/subject/:id', async (req, res, params) => {
-  if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
-  const d = layer2.detail(params.id);
+  const d = layer2.detail(params.id, { demoOnly: !adminOK(req) });
   if (!d) return send(res, 404, { error: 'not_found', reason: 'No identity with that id (it may have been merged into another one).' });
   send(res, 200, d);
 });

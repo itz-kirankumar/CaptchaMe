@@ -13,7 +13,8 @@
   let open = null;
 
   const chip = (cls) => '<span class="chip ' + (CHIP[cls] || '') + '">' + esc(LABEL[cls] || cls) + '</span>';
-  async function get(url) { const r = await CMAdmin.api(url); return r.json(); }
+  // The key is picked up silently when the server runs on this machine. Without it the page shows the demo attackers.
+  async function get(url) { try { const r = await CMAdmin.api(url, { gate: false }); return r.json(); } catch { const r = await fetch(url, { cache: 'no-store' }); return r.json(); } }
 
   function render(o) {
     $('k-mode').textContent = o.mode;
@@ -72,7 +73,7 @@
 
   ids.addEventListener('click', e => { const r = e.target.closest('[data-id]'); if (r) showDetail(r.dataset.id).catch(() => {}); });
   ids.addEventListener('keydown', e => { if (e.key === 'Enter') { const r = e.target.closest('[data-id]'); if (r) showDetail(r.dataset.id).catch(() => {}); } });
-  $('l2reset').addEventListener('click', async () => { await CMAdmin.api('/api/layer2/reset', { method: 'POST' }); open = null; $('l2detail').hidden = true; tick(); });
+  $('l2reset').addEventListener('click', async () => { try { await CMAdmin.api('/api/layer2/reset', { method: 'POST', gate: false }); } catch { /* only with a key */ } open = null; $('l2detail').hidden = true; tick(); });
 
   async function tick() {
     try { render(await get('/api/layer2/overview')); if (open) showDetail(open).catch(() => { open = null; $('l2detail').hidden = true; }); } catch { /* gate shown by CMAdmin, or server restarting */ }
