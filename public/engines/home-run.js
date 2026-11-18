@@ -46,10 +46,10 @@
   const ALLOWED = ['script', 'farm', 'headless', 'agent', 'adaptive'];
   (async () => {
     try { BOTS = (await (await fetch('/api/live/bots', { cache: 'no-store' })).json()).bots.filter(b => ALLOWED.includes(b.id)); } catch { /* offline */ }
-    sel.innerHTML = BOTS.map(b => '<option value="' + esc(b.id) + '">' + esc(b.label.replace(/^Sim: /, '')) + '</option>').join('');
+    sel.innerHTML = '<option value="person">You, as a person (follow the ring)</option>' + BOTS.map(b => '<option value="' + esc(b.id) + '">' + esc(b.label.replace(/^Sim: /, '')) + '</option>').join('');
     note();
   })();
-  function note() { const b = BOTS.find(x => x.id === sel.value); sug.innerHTML = b ? '<b>' + esc(b.label.replace(/^Sim: /, '')) + '</b> ' + esc(b.blurb) : 'Loading attackers...'; }
+  function note() { if (sel.value === 'person') { sug.innerHTML = '<b>You</b> Follow the moving ring with your pointer when it appears. A person passes; layer 2 then confirms you are one.'; return; } const b = BOTS.find(x => x.id === sel.value); sug.innerHTML = b ? '<b>' + esc(b.label.replace(/^Sim: /, '')) + '</b> ' + esc(b.blurb) : 'Loading attackers...'; }
   sel.addEventListener('change', note);
 
   // ---------- the run: one stream ----------
@@ -157,7 +157,23 @@
       (l2 ? '<div class="rn-who"><b>' + esc(l2.cls.replace(/_/g, ' ')) + '</b><span>' + Math.round(l2.conf * 100) + '% sure &middot; ' + l2.identities.ips + ' address' + (l2.identities.ips === 1 ? '' : 'es') + ' &middot; ' + l2.identities.uas + ' browser name' + (l2.identities.uas === 1 ? '' : 's') + '</span></div>' : '') +
       '<div class="rn-act"><button class="btn ghost" id="rnAgain">Run another</button><a class="btn accent" href="/layer2">Layer 2 analysis</a></div></div>' + where;
     verdictEl.classList.add('on');
+    if (l2 && l2.subject) showAnalytics(l2.subject);
     $('rnAgain').onclick = () => { close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  }
+
+  // layer 2 analytics, appended under the run
+  async function showAnalytics(id) {
+    let d; try { const r = await fetch('/api/live/analysis/' + encodeURIComponent(id), { cache: 'no-store' }); if (!r.ok) return; d = await r.json(); } catch { return; }
+    if (!run) return;
+    const bad = d.decision === 'block', warn = d.decision === 'step_up' || d.decision === 'slow';
+    const ev = (d.evidence || []).slice(0, 8).map(e => '<tr><td class="mono">' + esc(e.layer) + '</td><td class="mono">' + esc(e.code) + '</td><td>' + esc(e.text || '') + '</td></tr>').join('');
+    const el = document.createElement('div'); el.className = 'rn-an';
+    el.innerHTML = '<div class="rn-h">P2 &middot; Layer 2 analytics</div>' +
+      '<div class="rn-ankv"><div><small>Identity</small><b class="mono">' + esc(d.id) + '</b></div><div><small>Class</small><b>' + esc(d.cls.replace(/_/g, ' ')) + ' &middot; ' + Math.round(d.conf * 100) + '%</b></div><div><small>Decision</small><b class="' + (bad ? 'b' : warn ? 'w' : 'g') + '">' + esc(d.decision.replace('_', ' ')) + '</b></div><div><small>One client</small><b>' + d.identities.ips + ' address' + (d.identities.ips === 1 ? '' : 'es') + ', ' + d.identities.uas + ' browser name' + (d.identities.uas === 1 ? '' : 's') + '</b></div><div><small>Cost caused</small><b>$' + Number(d.usd || 0).toFixed(4) + '</b></div><div><small>Layer 1</small><b>' + d.challenges.passes + ' pass, ' + d.challenges.fails + ' fail</b></div></div>' +
+      '<p class="rn-anwhy">' + esc(d.why) + '</p>' +
+      (ev ? '<table class="rn-antbl"><thead><tr><th>Layer</th><th>Evidence</th><th>What it saw</th></tr></thead><tbody>' + ev + '</tbody></table>' : '') +
+      '<a class="btn ghost sm" href="/layer2">Open the full layer 2 analysis</a>';
+    term.appendChild(el); toBottom();
   }
 
   function feed(e) {
@@ -195,7 +211,17 @@
     })();
   }
   function close() { modal.hidden = true; document.body.classList.remove('th-lock'); run = null; if (rainStop) { rainStop(); rainStop = null; } }
-  form.addEventListener('submit', e => { e.preventDefault(); start(); });
+  const lvApp = $('lvapp');
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (sel.value === 'person') {
+      lvApp.hidden = false;
+      const m = lvApp.querySelector('.lv-mode[data-lv-mode="human"]'), s = $('lvstart');
+      if (m && s) { m.click(); s.click(); lvApp.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      return;
+    }
+    lvApp.hidden = true; start();
+  });
   $('rnClose').addEventListener('click', close);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });

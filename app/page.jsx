@@ -9,31 +9,23 @@ export default function Home() {
       <h1 className="th-h1">Know who&apos;s visiting.<em>Cap what they take.</em></h1>
       <p className="th-lede">Bypass tools are sold openly, so a solved puzzle proves nothing. CaptchaMe checks that a live person is there. A second layer merges every request into one identity, names the bypass family, and shows in raw text exactly where it was stopped.</p>
       <p className="th-more">
-        <a className="btn" href="#livestack">Start the live demo</a> <a className="btn ghost" href="#stopped">See where attacks stop</a>
+        <a className="btn" href="#livestack">Start the live demo</a> <Link className="btn ghost" href="/try">Try the captchas by hand</Link>
       </p>
     </section>
 
     <section className="block demo-sec" id="livestack">
-      <span className="kicker">1 &middot; Live stack</span>
+      <span className="kicker">Live stack</span>
       <h2 className="section">Pick who is knocking. Press Start.</h2>
-      <p className="section-sub">This page makes the real API calls your product would make and streams what each layer decides. Try it as a person: follow the ring when it appears.</p>
-      <div className="lv" id="lvapp"></div>
-    </section>
-
-    <section className="block demo-sec" id="stopped">
-      <span className="kicker">2 &middot; Post-analysis</span>
-      <h2 className="section">Where attacks get stopped</h2>
-      <p className="section-sub">Send a bypass tool at the stack. Layer 1 reads it layer by layer; layer 2 then merges the packets into one identity, names the bypass family and decides. Every line is raw output from the server.</p>
+      <p className="section-sub">Run as yourself and follow the ring, or send a bypass tool at the stack. Each layer reads the request live. When it ends, layer 2 shows who it really was.</p>
       <form className="th-bar" id="runForm" autoComplete="off">
         <span className="th-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></svg></span>
-        <select id="runBot" aria-label="Choose an attacker"><option>Loading attackers...</option></select>
-        <button type="submit" className="btn">Start attack</button>
+        <select id="runBot" aria-label="Run as"><option>Loading...</option></select>
+        <button type="submit" className="btn">&#9654; Start</button>
       </form>
-      <div className="th-sug" id="runSug" aria-live="polite">Loading attackers...</div>
-      <p className="th-more"><Link className="btn ghost" href="/layer2">Open the full layer 2 analysis</Link> <Link className="btn ghost" href="/try">Try the captchas by hand</Link></p>
+      <div className="th-sug" id="runSug" aria-live="polite">Loading...</div>
+      <div className="lv" id="lvapp" hidden></div>
+      <p className="th-more"><Link className="btn ghost" href="/layer2">Full layer 2 analysis</Link> <Link className="btn ghost" href="/evidence">Evidence</Link></p>
     </section>
-
-    <section className="block demo-sec"><div className="card landing-ev"><div><span className="kicker">3 &middot; Evidence</span><h3>When a captcha fails, abuseguard limits the damage</h3><p>See what we measured on public data, what we have not measured, and how the optional budget layer caps what any one person can take.</p></div><Link className="btn ghost" href="/evidence">Open the evidence</Link></div></section>
 
     <div className="rn-modal" id="runModal" hidden role="dialog" aria-modal="true" aria-label="Attack run">
       <div className="rn-sheet">

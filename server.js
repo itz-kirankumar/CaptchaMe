@@ -1156,6 +1156,12 @@ route('GET', '/api/layer2/subject/:id', async (req, res, params) => {
   if (!d) return send(res, 404, { error: 'not_found', reason: 'No identity with that id (it may have been merged into another one).' });
   send(res, 200, d);
 });
+// Demo only: the analysis behind a built-in attacker's run, so the home page can show it without an admin key.
+route('GET', '/api/live/analysis/:id', async (req, res, params) => {
+  const d = layer2.detail(params.id);
+  if (!d || !d.attackers.length || !d.attackers.every((a) => /^Sim: /.test(a))) return send(res, 404, { error: 'not_found' });
+  send(res, 200, d);
+});
 route('POST', '/api/layer2/reset', async (req, res) => { if (!adminOK(req)) return send(res, 403, { error: 'forbidden' }); layer2.reset(); send(res, 200, { ok: true }); });
 
 // ---------- live attack room ----------

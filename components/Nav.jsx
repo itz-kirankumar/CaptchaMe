@@ -6,7 +6,6 @@ import Logo from './Logo';
 
 export const LINKS = [
   ['/#livestack', 'Live demo'],
-  ['/#stopped', 'Where attacks stop'],
   ['/layer2', 'Layer 2 analysis'],
   ['/evidence', 'Evidence'],
 ];
