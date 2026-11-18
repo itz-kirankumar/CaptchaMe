@@ -10,7 +10,7 @@
 </div>
 <div class="card">
   <h2 style="margin-top:0">For your own agent</h2>
-  <p class="note" style="margin:0">POST /api/agent/nonce, sign the nonce with your Ed25519 key, POST /api/agent/declare with {pubkey, signature, nonce, operator}. Use the returned token as a Bearer token on the protected API. OpenClaw, LangGraph, a cron script: anything with a key can use the lane.</p>
+  <p class="note" style="margin:0">POST /api/agent/nonce, sign the nonce with your Ed25519 key, POST /api/agent/declare with {pubkey, signature, nonce, operator}. Use the returned token as a Bearer token on the protected API. A LangGraph flow, a browser extension, a cron script: anything with a key can use the lane.</p>
 </div>
 <p class="note"><a style="color:var(--accent)" href="/">Back</a></p>
 <script src="/agent.js"></script>
