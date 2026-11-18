@@ -8,6 +8,14 @@
   // A person is trying these by hand: the scoreboard should say so.
   document.cookie = 'cm_attacker=Human; Path=/; SameSite=Lax; Max-Age=86400';
   const isHuman = () => true;
+  const solved = new Set();
+  function tally() { const n = $('tryN'); if (n) n.textContent = solved.size; const bar = $('tryBar'); if (bar) bar.style.width = (solved.size / 8 * 100) + '%'; }
+  function mark(card, r) {
+    const type = card.getAttribute('data-type');
+    card.classList.remove('ok', 'bad');
+    if (r.status === 200) { card.classList.add(r.body.ok ? 'ok' : 'bad'); if (r.body.ok) solved.add(type); }
+    tally();
+  }
 
   const CLASSIC = [['text', 'Distorted text'], ['math', 'Math'], ['grid', 'Image grid'], ['slider', 'Slider'], ['rotate', 'Rotate'], ['click', 'Click in order'], ['checkbox', 'Bare checkbox'], ['pow', 'Proof of work']];
   grid.innerHTML = CLASSIC.map(([t, name]) => '<div class="lr-card" data-type="' + t + '"><div class="lr-card-h"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new title="Load a new one">New</button></div><div class="body"></div><div class="lr-res"></div></div>').join('');
@@ -18,6 +26,7 @@
     const ms = r.body.elapsedMs ? ' (' + (r.body.elapsedMs / 1000).toFixed(1) + ' s)' : '';
     el.className = 'lr-res ' + (r.body.ok ? (isHuman() ? 'ok' : 'bad') : 'ok');
     el.textContent = (r.body.ok ? (isHuman() ? 'Passed: ' : 'Bypassed: ') : 'Rejected: ') + r.body.reason + ms;
+    mark(card, r);
     setTimeout(() => load(card), 2600);
   }
   async function load(card) {
@@ -86,9 +95,10 @@
   all();
   $('tryAll').addEventListener('click', async function () {
     this.disabled = true; const t = this.textContent; this.textContent = 'Loading...';
+    solved.clear(); tally(); grid.querySelectorAll('.lr-card').forEach(c => c.classList.remove('ok', 'bad'));
     await all(); $('tryCm').src = '/check?embed=1&fresh=' + Date.now(); $('tryPass').textContent = '';
     this.textContent = t; this.disabled = false;
   });
   $('tryCmNew').addEventListener('click', () => { $('tryCm').src = '/check?embed=1&fresh=' + Date.now(); $('tryPass').textContent = ''; });
-  window.addEventListener('message', e => { if (e.data && e.data.type === 'captchame:pass') $('tryPass').textContent = 'CaptchaMe: passed (score ' + (e.data.score == null ? '?' : e.data.score) + ')'; });
+  window.addEventListener('message', e => { if (e.data && e.data.type === 'captchame:pass') $('tryCmS').textContent = 'CaptchaMe: passed'; $('tryPass').textContent = 'CaptchaMe: passed (score ' + (e.data.score == null ? '?' : e.data.score) + ')'; });
 })();

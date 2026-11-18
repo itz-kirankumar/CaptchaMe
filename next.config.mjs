@@ -5,6 +5,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      { source: '/live', destination: '/try', permanent: false },
       { source: '/use', destination: '/integrations', permanent: false },
       { source: '/compare', destination: '/arena', permanent: false },
       { source: '/console', destination: '/dashboard', permanent: false },

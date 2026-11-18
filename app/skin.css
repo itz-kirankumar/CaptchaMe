@@ -281,3 +281,16 @@ html, body { overflow-x: clip; }
 }
 .card.landing-ev { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .card.landing-ev > div { flex: 1; min-width: 240px; }
+
+/* ---------- /try polish ---------- */
+.try-score { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+.try-score b { color: var(--brand-text); font-size: 20px; }
+.try-meter { width: 120px; height: 6px; border-radius: 6px; background: var(--surface-3); overflow: hidden; }
+.try-meter i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.try-grid .lr-card { transition: border-color .3s, box-shadow .3s, transform .25s; }
+.try-grid .lr-card:hover { transform: translateY(-2px); }
+.try-grid .lr-card.ok { border-color: var(--human); box-shadow: 0 0 0 1px color-mix(in srgb, var(--human) 40%, transparent), 0 10px 30px color-mix(in srgb, var(--human) 10%, transparent); }
+.try-grid .lr-card.bad { border-color: color-mix(in srgb, var(--bot) 60%, transparent); }
+.try-grid .lr-card.ok .lr-res { color: var(--human-text); }
+.try-grid .lr-card.bad .lr-res { color: var(--bot-text); }
+.try-grid .lr-price { display: none; }

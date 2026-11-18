@@ -9,9 +9,9 @@ export default function Page() {
       Try the classic formats by hand on the left, and CaptchaMe on the right. Each classic card has a <b>New</b> button for a fresh puzzle; <b>Refresh all</b> reloads everything, CaptchaMe included. Your tries land on the <Link href="/arena">scoreboard</Link> as a person.
     </PageHead>
     <div className="try-top">
-      <button className="btn" id="tryAll">Refresh all captchas</button>
+      <div className="try-score" aria-live="polite"><div className="try-meter"><i id="tryBar"></i></div><span><b id="tryN">0</b> of 8 classic captchas solved</span><span className="dim" id="tryCmS">CaptchaMe: not tried yet</span></div>
       <span className="sp"></span>
-      <Link className="btn ghost" href="/live">Attack them with bots</Link>
+      <button className="btn" id="tryAll">Refresh all captchas</button>
     </div>
     <div className="try-grid">
       <section className="try-col" aria-label="Classic captchas">
