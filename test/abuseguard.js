@@ -38,7 +38,7 @@ function stub() {
 }
 
 function boot(port, extra) {
-  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(port), POP_ADMIN_KEY: 'k', POP_RATE_PER_MIN: '5000', ...extra }, stdio: 'pipe' });
+  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(port), POP_ADMIN_KEY: 'k', POP_RATE_PER_MIN: '5000', LAYER2_MODE: 'shadow', ...extra }, stdio: 'pipe' });
   return srv;
 }
 async function waitUp(base) { for (let i = 0; i < 50; i++) { try { await fetch(base + '/api/stats'); return; } catch { await sleep(100); } } throw new Error('server did not start'); }

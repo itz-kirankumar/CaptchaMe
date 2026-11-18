@@ -6,6 +6,8 @@ import Logo from './Logo';
 
 export const LINKS = [
   ['/check', 'Risk ladder'],
+  ['/live', 'Live run'],
+  ['/layer2', 'Layer 2'],
   ['/audit', 'Audit'],
   ['/arena', 'Arena'],
   ['/scraper', 'Scraper shield'],

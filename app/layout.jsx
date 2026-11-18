@@ -1,4 +1,5 @@
 import './globals.css';
+import './skin.css';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 
@@ -8,7 +9,7 @@ export const metadata = {
   icons: { icon: [{ url: '/logo.svg', type: 'image/svg+xml' }] },
 };
 
-export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#07080c' };
+export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#f6f5f2' };
 
 // Runs before paint: theme from the visitor's last choice, and embed mode
 // when the page is shown inside a customer's iframe.
@@ -16,7 +17,7 @@ const BOOT = `(function(){try{var t=localStorage.getItem('cm-theme');if(t==='lig
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: BOOT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

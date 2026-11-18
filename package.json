@@ -8,8 +8,9 @@
     "build": "next build",
     "start": "next start",
     "legacy": "node server.js",
-    "test": "node test/e2e.js && node test/abuseguard.js",
-    "test:abuseguard": "node test/abuseguard.js"
+    "test": "node test/e2e.js && node test/abuseguard.js && node test/layer2.js",
+    "test:abuseguard": "node test/abuseguard.js",
+    "test:layer2": "node test/layer2.js"
   },
   "license": "MIT",
   "engines": {

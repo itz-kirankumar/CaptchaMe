@@ -5,7 +5,7 @@ const prog = document.getElementById('prog');
 const statusEl = document.getElementById('status');
 const out = document.getElementById('out');
 
-const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
+const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0, langs: (navigator.languages || []).length, screen: screen.width + 'x' + screen.height, outer: (window.outerWidth || 0) + 'x' + (window.outerHeight || 0), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 40) }; } catch { return {}; } })();
 async function post(url, body) {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   return { status: r.status, body: await r.json() };

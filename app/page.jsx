@@ -14,22 +14,30 @@ const FORMATS = [
 
 export default function Home() {
   return (<>
-    <section className="hero">
-      <div>
-        <span className="badge"><span className="dot"></span>Traffic referee for people, AI agents and bots</span>
-        <h1>Know who&apos;s visiting.<br /><em>Cap what they take.</em></h1>
-        <p className="lede">Most visitors pass invisibly while they fill in a form. Scrapers are slowed, decoyed or blocked without holding your servers open. Honest agents get a signed lane. And every actor, even one that beats a check, is capped at a fair share in dollars.</p>
-        <div className="cta-row">
-          <Link className="btn" href="/audit">See what bots cost you</Link>
-          <Link className="btn ghost" href="/check">Try the invisible check</Link>
-        </div>
-        <p className="note small">The audit reads the access logs you already have. Nothing to install.</p>
-      </div>
-      <div className="hero-visual">
-        <canvas id="herocv" width="640" height="480" aria-label="A human cursor trails the moving ring with natural lag while a bot cursor sits exactly on it"></canvas>
-        <div className="cap"><span><span className="chip human">human</span> 180 ms behind, always correcting</span><span><span className="chip bot">bot</span> 0 ms, perfect, caught</span></div>
-      </div>
+    <section className="th-hero">
+      <svg className="th-curves" id="thCurves" aria-hidden="true" preserveAspectRatio="xMidYMid slice"></svg>
+      <p className="th-tag"><i></i>Post-verification for people, AI agents and bots</p>
+      <h1 className="th-h1">Know who&apos;s visiting.<em>Cap what they take.</em></h1>
+      <p className="th-lede">Solving a puzzle proves nothing now: bypass tools are sold openly. CaptchaMe checks that a live person is there, then a second layer keeps every packet, merges them into one identity per real client, names the bypass family, and decides what that identity may do next.</p>
+      <form className="th-bar" id="runForm" autoComplete="off">
+        <span className="th-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></svg></span>
+        <select id="runBot" aria-label="Choose an attacker"><option>Loading attackers...</option></select>
+        <button type="submit" className="btn">Run the attack</button>
+      </form>
+      <div className="th-sug" id="runSug" aria-live="polite">Loading attackers...</div>
+      <p className="th-hint">Pick an attacker. Watch every layer read it, then see who layer 2 says it was.</p>
+      <p className="th-fine">Runs against this server with built-in simulators. Nothing leaves your machine.</p>
+      <p className="th-more"><Link className="btn ghost" href="/live">Open the live room</Link> <Link className="btn ghost" href="/layer2">See layer 2</Link></p>
     </section>
+
+    <div className="th-modal" id="runModal" hidden role="dialog" aria-modal="true" aria-label="Attack run">
+      <div className="th-sheet">
+        <div className="th-steps" id="thSteps"></div>
+        <div className="th-prog" id="thProg"></div>
+        <div className="th-body"><aside className="th-list" id="thList" aria-label="Steps"></aside><section className="th-main" id="thMain" aria-live="polite"></section></div>
+        <div className="th-foot"><span id="thStat">Starting...</span><span className="sp"></span><button className="btn ghost" id="thAgain" hidden>Run another</button><Link className="btn accent" href="/layer2">Open layer 2 analysis</Link></div>
+      </div>
+    </div>
 
     <div className="statband" id="statband">
       <div><b id="st-checks">-</b><span>live checks judged</span></div>
@@ -111,6 +119,6 @@ export default function Home() {
       <span><b>Bots, go ahead. Try.</b><small>Point Buster, 2Captcha, CapSolver or a browser agent at the classic formats, then at CaptchaMe.</small></span>
       <span className="go">Open the arena</span>
     </Link>
-    <ScriptEngine srcs={['/engines/home.js']} />
+    <ScriptEngine srcs={['/engines/home.js', '/engines/home-run.js']} />
   </>);
 }

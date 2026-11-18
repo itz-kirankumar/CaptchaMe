@@ -26,6 +26,8 @@ const passive = require('./lib/passive');
 const webbotauth = require('./lib/webbotauth');
 const audit = require('./lib/audit');
 const traffic = require('./lib/traffic');
+const live = require('./lib/live');
+const layer2 = require('./lib/layer2'); // post-verification capture and analysis
 const ag = require('./lib/abuseguard'); // second layer; a no-op unless ABUSEGUARD_URL/KEY/SALT are set
 
 const PORT = process.env.PORT || 3000;
@@ -256,11 +258,21 @@ route('POST', '/api/challenge/start', async (req, res) => {
   const sess = { id, type, params: publicParams, iat: Date.now(), net: net.score, nr: net.reasons.slice(0, 2), uah: uaHash(req) };
   if (sealed) sess.enc = seal(sealed);
   if (typeof body.form_hash === 'string' && /^[a-f0-9]{64}$/i.test(body.form_hash)) sess.form = body.form_hash.toLowerCase();
+  {
+    const who = attackerOf(req), L = live.attempt('cm', id, type, who);
+    L('L0', 'info', 'challenge requested by "' + who + '"' + (body.type === 'auto' ? '; server picked "' + type + '" at random so no solver can train on one format' : '; format "' + type + '"'));
+    live.readNetwork(req).lines.forEach(x => L('L1', x.level, x.text));
+    if (sealed) L('L2', 'info', 'hidden schedule: ' + sealed.items.length + ' ' + (sealed.kind === 'dart' ? 'ring jumps' : 'flashes') + ' sealed (AES-GCM); each is released only at its moment, so nothing can be pre-computed');
+    L('L2', 'info', 'session signed (HMAC), single use, expires in 90 s; answer window ' + (maxAnswerMs(type, publicParams) / 1000).toFixed(1) + ' s');
+  }
+  layer2.observe(req, 'challenge.start', { sid: id, type, attacker: attackerOf(req), quiet: true });
   send(res, 200, { session: signSession(sess), type, params: publicParams, active_window_ms: maxAnswerMs(type, publicParams), auto: body.type === 'auto' });
 });
 
 // ---------- live cues for the hidden schedule ----------
 const CUE_WINDOW_MS = 1500;
+const cueSeen = new Set(); // live room: report each cue the first time it is fetched
+setInterval(() => { if (cueSeen.size > 20000) cueSeen.clear(); }, 60000).unref();
 const cueSig = (sid, kind, i, srv) => crypto.createHmac('sha256', SESSION_SECRET).update(`cue:${sid}:${kind}:${i}:${srv}`).digest('base64url').slice(0, 22);
 route('POST', '/api/challenge/cue', async (req, res) => {
   if (!rateLimit('cue:' + clientIp(req), 3000)) return send(res, 429, { error: 'rate_limited' });
@@ -272,8 +284,82 @@ route('POST', '/api/challenge/cue', async (req, res) => {
   const cues = sealed.items.map((it, i) => ({ it, i }))
     .filter(({ it }) => srv >= it.at && srv <= it.at + CUE_WINDOW_MS)
     .map(({ it, i }) => ({ kind: sealed.kind, i, srv, r: cueSig(sess.id, sealed.kind, i, srv), ...(sealed.kind === 'dart' ? { px: it.px, py: it.py } : {}) }));
+  for (const c of cues) {
+    const k = sess.id + ':' + c.i;
+    if (cueSeen.has(k)) continue;
+    cueSeen.add(k);
+    live.attempt('cm', sess.id, sess.type, attackerOf(req))('L5', 'ok', (c.kind === 'dart' ? 'ring jump' : 'flash') + ' #' + (c.i + 1) + ' released at ' + (c.srv / 1000).toFixed(2) + ' s; the client pulled it live (' + (c.srv - sealed.items[c.i].at) + ' ms after it fired)');
+  }
   send(res, 200, { cues, srv, done: srv > Math.max(...sealed.items.map(x => x.at)) + CUE_WINDOW_MS });
 });
+
+// ---------- live attack room: explain every submit, layer by layer ----------
+const HARD_RX = /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control|one task at a time/;
+function flagLayer(f) {
+  if (/webdriver|automation control/.test(f)) return 'L3';
+  if (/after the challenge started|for a challenge that runs|live (jump|flash) signals/.test(f)) return 'L5';
+  if (/another browser|relayed/.test(f)) return 'L6';
+  if (/connection/.test(f)) return 'L1';
+  return 'L4';
+}
+function fmtVal(v) {
+  if (Array.isArray(v)) return '[' + v.slice(0, 8).map(x => (x === null ? 'miss' : typeof x === 'object' ? JSON.stringify(x) : x)).join(', ') + (v.length > 8 ? ', ...' : '') + ']';
+  if (v && typeof v === 'object') return JSON.stringify(v).slice(0, 60);
+  return String(v);
+}
+function buildViz(type, P, body, result) {
+  const out = {};
+  const d = (result && result.detail) || {};
+  if ((type === 'ring' || type === 'pulse') && Array.isArray(body.samples) && body.samples.length) {
+    const s = body.samples.filter(p => p && [p.t, p.x, p.y].every(Number.isFinite)).slice(0, 2000);
+    const step = Math.max(1, Math.ceil(s.length / 180));
+    const pts = s.filter((_, i) => i % step === 0);
+    out.path = {
+      cursor: pts.map(p => [Math.round(p.t), +p.x.toFixed(3), +p.y.toFixed(3)]),
+      target: pts.map(p => { const g = scoring.ringTarget(P, p.t / 1000); return [+g.x.toFixed(3), +g.y.toFixed(3)]; }),
+      darts: (P.darts || []).map(x => x.at), lagMs: d.lagMs,
+    };
+  }
+  if (Array.isArray(d.reactionsMs)) out.rts = d.reactionsMs.slice(0, 20);
+  if (type === 'beat' && Array.isArray(body.taps) && Array.isArray(P.beats)) {
+    out.offsets = body.taps.slice(0, 30).filter(Number.isFinite).map(t => { let best = Infinity; for (const b of P.beats) if (Math.abs(t - b) < Math.abs(best)) best = t - b; return Math.round(best); });
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+function traceSubmit(req, sess, c) {
+  try {
+    const L = live.attempt('cm', sess.id, sess.type, c.attacker);
+    // L3: what the browser says about itself
+    const e = c.body.env;
+    if (!e || typeof e !== 'object') L('L3', 'flag', 'browser probe: nothing sent -> this answer did not come from the CaptchaMe widget');
+    else {
+      const bits = ['webdriver=' + (e.webdriver === true), 'plugins=' + (e.plugins ?? '?'), 'cores=' + (e.hardware ?? '?')];
+      if (e.langs !== undefined) bits.push('languages=' + e.langs);
+      if (e.screen) bits.push('screen=' + e.screen);
+      if (e.outer) bits.push('window=' + e.outer);
+      if (e.tz) bits.push('tz=' + e.tz);
+      const headless = e.outer === '0x0' || e.langs === 0;
+      L('L3', c.webdriver ? 'block' : headless ? 'flag' : 'ok', 'browser probe: ' + bits.join(' ') + (c.webdriver ? ' -> under automation control' : headless ? ' -> looks like a headless window' : ' -> ordinary browser'));
+    }
+    // L4: the raw measurements of the response shape
+    const d = c.result.detail || {};
+    const pairs = Object.keys(d).map(k => k + '=' + fmtVal(d[k]));
+    for (let i = 0; i < pairs.length; i += 4) L('L4', 'info', 'measured: ' + pairs.slice(i, i + 4).join('  '));
+    if (Number.isFinite(d.lagMs)) L('L4', d.lagMs >= 80 && d.lagMs <= 350 ? 'ok' : 'flag', 'reaction lag ' + d.lagMs + ' ms behind the ring' + (d.lagMs >= 80 && d.lagMs <= 350 ? ' (people run 80-350 ms behind)' : ' (outside the human 80-350 ms band)'));
+    if (Number.isFinite(d.corrections)) L('L4', d.corrections <= 10 ? 'flag' : (d.lagMs >= 80 && d.lagMs <= 350) ? 'ok' : 'info', d.corrections + ' micro-corrections' + (d.corrections > 10 ? ' (a hand keeps correcting)' : ' (a hand makes dozens)'));
+    for (const f of c.result.flags) L(flagLayer(f), HARD_RX.test(f) || c.extraHard.includes(f) ? 'block' : 'flag', f);
+    // L5: wall clock and live cue receipts
+    const late = c.elapsedMs > c.maxMs;
+    L('L5', c.tooFast || late ? 'block' : 'ok', 'wall clock: answered after ' + (c.elapsedMs / 1000).toFixed(2) + ' s; live window is ' + (c.minMs / 1000).toFixed(1) + '-' + (c.maxMs / 1000).toFixed(1) + ' s' + (c.tooFast ? ' -> computed, not performed' : late ? ' -> queued or relayed' : ''));
+    if (c.cueStat) L('L5', c.cueStat.got === c.cueStat.of ? 'ok' : 'block', 'signed live receipts: ' + c.cueStat.got + '/' + c.cueStat.of + ' ' + (c.cueStat.kind === 'dart' ? 'jumps' : 'flashes') + ' fetched while the challenge ran');
+    // L6: is it the same browser?
+    if (sess.uah && sess.uah === uaHash(req)) L('L6', 'ok', 'same browser that started it (ua hash ' + sess.uah + '); a pass would be bound to user-agent + language + network prefix');
+    // L7: the decision
+    const viz = buildViz(sess.type, c.P, c.body, c.result);
+    if (c.passed) L('L7', 'pass', 'PASS ' + c.result.score + '/100 -> single-use pass token, 5 min, bound to this browser; ledger grants +$' + ledger.DEFAULTS.human.toFixed(2) + ' and still caps what this actor can take', { final: true, verdict: 'pass', score: c.result.score, viz });
+    else L('L7', 'block', 'BLOCK ' + c.result.score + '/100 -> ' + (c.result.flags[0] || 'did not look like a live person'), { final: true, verdict: 'block', score: c.result.score, viz, reasons: c.result.flags.slice(0, 4) });
+  } catch { /* the live room never breaks a verdict */ }
+}
 
 route('POST', '/api/challenge/submit', async (req, res) => {
   const body = await readBody(req);
@@ -284,6 +370,11 @@ route('POST', '/api/challenge/submit', async (req, res) => {
     await logEvent('replay', `Replay blocked: session ${sess.id.slice(0, 6)} submitted twice`, { lane: sess.type, attacker });
     await bump('botsCaught');
     await arena('captchame:' + sess.type, attacker, false);
+    {
+      const L = live.attempt('cm', sess.id, sess.type, attacker);
+      L('L6', 'block', 'session ' + sess.id.slice(0, 8) + ' was already answered once: replayed or shared answer refused');
+      L('L7', 'block', 'BLOCK: replay', { final: true, verdict: 'block', score: 0 });
+    }
     return send(res, 409, { error: 'replay', reason: 'This challenge was already answered. Challenges work once.' });
   }
   doneSessions.add(sess.id);
@@ -307,7 +398,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
 
   // Rebuild the hidden schedule on the browser's own timeline from the signed
   // cue receipts. A run that never fetched its cues was scripted in advance.
-  let P = sess.params;
+  let P = sess.params, cueStat = null;
   if (sess.enc) {
     const sealed = unseal(sess.enc);
     const got = Array.isArray(body.cues) ? body.cues.slice(0, 20) : [];
@@ -321,6 +412,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
       return Math.round(at);
     });
     const missing = applied.filter(x => x === null).length;
+    cueStat = { kind: sealed.kind, got: applied.length - missing, of: applied.length };
     if (missing) extraHard.push('missing ' + missing + ' of ' + applied.length + ' live ' + (sealed.kind === 'dart' ? 'jump' : 'flash') + ' signals: the run was scripted or replayed, not reacting live');
     if (sealed.kind === 'dart') P = { ...P, darts: sealed.items.map((it, i) => ({ at: applied[i] ?? it.at, px: it.px, py: it.py })) };
     else P = { ...P, flashes: sealed.items.map((it, i) => applied[i] ?? it.at) };
@@ -353,6 +445,14 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   const hardFlag = extraHard.length || (result.hard && result.hard.length) || result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control|one task at a time/.test(f));
   const passed = result.score >= 60 && !tooFast && !webdriver && !hardFlag;
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
+  traceSubmit(req, sess, { attacker, elapsedMs, minMs, maxMs, extraHard, result, passed, env, P, body, netScore, cueStat, webdriver, tooFast });
+  {
+    const ts = Array.isArray(body.samples) ? body.samples.reduce((m, p) => (p && Number.isFinite(p.t) && p.t > m ? p.t : m), 0) : null;
+    layer2.observe(req, 'challenge.submit', {
+      sid: sess.id, type: sess.type, passed, score: result.score, flags: result.flags, detail: result.detail, env, elapsedMs, samplesMaxT: ts, attacker,
+      actor: passed || cookies(req).pop_actor ? actorId : undefined, note: sess.type + ' ' + (passed ? 'pass ' : 'fail ') + result.score,
+    });
+  }
   await arena('captchame:' + sess.type, attacker, passed);
   await bump('checks');
 
@@ -399,6 +499,7 @@ route('POST', '/api/arena/start', async (req, res) => {
   if (!made) return send(res, 400, { error: 'bad_type', reason: 'type must be one of ' + classic.TYPES.join(', ') });
   const sess = { id: crypto.randomBytes(12).toString('hex'), kind: 'classic', type: body.type, ah: classicHash(classic.normalize(body.type, made.answer)), iat: Date.now() };
   if (made.secret) sess.enc = seal(made.secret);
+  { const mk = live.MARKET[body.type]; live.attempt('rival', sess.id, body.type, attackerOf(req))('R', 'info', 'served a ' + (mk ? mk.name : body.type) + ' to "' + attackerOf(req) + '"; it will only check the answer'); }
   if (body.type === 'pow') { sess.salt = made.params.salt; sess.bits = made.params.bits; }
   send(res, 200, { session: signSession(sess), type: body.type, params: made.params });
 });
@@ -407,13 +508,28 @@ route('POST', '/api/arena/verify', async (req, res) => {
   const body = await readBody(req);
   const sess = readSession(body.session);
   if (!sess || sess.kind !== 'classic') return send(res, 410, { error: 'session_gone', reason: 'Challenge expired. Load a fresh one.' });
-  if (doneSessions.has(sess.id)) return send(res, 409, { error: 'replay', reason: 'Already answered.' });
+  if (doneSessions.has(sess.id)) {
+    live.attempt('rival', sess.id, sess.type, attackerOf(req))('R', 'ok', 'replayed answer refused (this demo rival is single-use; many real deployments are too)', { final: true, verdict: 'fail', bypass: false, shadow: 'block', risk: 100, cost: 0 });
+    return send(res, 409, { error: 'replay', reason: 'Already answered.' });
+  }
   doneSessions.add(sess.id);
   const attacker = attackerOf(req);
   const extra = { ...(body.extra || {}), elapsedMs: Date.now() - sess.iat, salt: sess.salt, bits: sess.bits };
   const r = classic.check(sess.type, sess.ah, body.answer, extra, classicHash, sess.enc ? unseal(sess.enc) : null);
   await arena('classic:' + sess.type, attacker, r.ok);
   await logEvent('arena', `Classic ${sess.type} captcha ${r.ok ? 'solved' : 'failed'} by ${attacker}: ${r.reason}`, { lane: 'classic:' + sess.type, attacker, result: r.ok ? 'pass' : 'fail' });
+  try {
+    const L = live.attempt('rival', sess.id, sess.type, attacker), mk = live.MARKET[sess.type];
+    const human = /^\s*(human|person)\b/i.test(attacker);
+    L('R', r.ok ? (human ? 'ok' : 'bypass') : 'ok', 'rival checked the answer only -> ' + (r.ok ? 'PASS' : 'REJECT') + ': ' + r.reason + ' (' + (extra.elapsedMs / 1000).toFixed(2) + ' s)');
+    if (mk) L('R', 'info', 'market rate to bypass this format: ' + mk.price + ', solved in about ' + mk.speed + ' (2captcha list)');
+    const sh = live.shadowRival(req, sess.type, extra.elapsedMs, body.extra);
+    sh.net.lines.forEach(x => L('CM', x.level, x.text));
+    sh.lines.forEach(x => L('CM', x.level, x.text));
+    L('CM', sh.verdict === 'block' ? 'block' : 'flag', 'CaptchaMe on the same request: ' + (sh.verdict === 'block' ? 'BLOCK (risk ' + sh.risk + ')' : 'NOT ENOUGH - a solved puzzle proves nothing; it would ask for a live check (risk ' + sh.risk + ')'),
+      { final: true, verdict: r.ok ? 'pass' : 'fail', bypass: r.ok && !human, shadow: sh.verdict, risk: sh.risk, cost: mk ? mk.per : 0 });
+  } catch { /* the live room never breaks a verdict */ }
+  layer2.observe(req, 'rival.verify', { sid: sess.id, type: sess.type, ok: r.ok, elapsedMs: extra.elapsedMs, attacker, webdriver: !!(body.extra && body.extra.webdriver), note: sess.type + (r.ok ? ' solved in ' : ' rejected after ') + Math.round(extra.elapsedMs) + ' ms', quiet: false });
   send(res, 200, { ok: r.ok, reason: r.reason, elapsedMs: Date.now() - sess.iat });
 });
 
@@ -495,6 +611,7 @@ async function shieldRespond(req, res, verdictObj, page, attacker) {
   // A decoy is built first so its canary id lands in the operator's log
   // (scrape events never appear in the public feed), never in the response.
   const decoyed = verdictObj.decision === 'decoy' ? shield.decoy(await verdictFeed(page), verdictObj.key) : null;
+  layer2.observe(req, 'scrape', { page, decision: verdictObj.decision, score: verdictObj.score, reasons: verdictObj.reasons, attacker, canary: decoyed ? decoyed.canary : null, quiet: true, note: 'catalog page ' + page + ' ' + verdictObj.decision });
   await logEvent('scrape', `Shield ${verdictObj.decision.toUpperCase()} (risk ${verdictObj.score}) page ${page}: ${verdictObj.reasons[0] || 'looks like a person browsing'}${decoyed ? ' - canary ' + decoyed.canary + ' tied to this visitor' : ''}`, { lane: 'shield', decision: verdictObj.decision, score: verdictObj.score, reasons: verdictObj.reasons.slice(0, 4), actor: verdictObj.key, attacker, ...(decoyed ? { canary: decoyed.canary } : {}) });
   const hdr = { 'X-CaptchaMe-Shield': verdictObj.decision, 'X-CaptchaMe-Risk': String(verdictObj.score) };
   if (verdictObj.decision === 'block') {
@@ -591,6 +708,7 @@ route('POST', '/api/pass/verify', async (req, res) => {
       await arena('captchame:token-relay', attackerOf(req), false);
       await bump('botsCaught');
     }
+    if (v.relayed && v.actor) layer2.noteActor(v.actor, 'TOKEN_RELAY', 'solver', 'L6', 0.9, 'the pass was earned in one browser and presented from another: ' + v.reason);
     return send(res, 200, { ok: false, reason: v.reason || 'invalid pass' });
   }
   send(res, 200, { ok: true, subject: v.kind, actor: v.actor, via: v.via, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass', browser_bound: v.bound, browser_checked: v.bindChecked, form_bound: v.formBound, form_checked: v.formChecked });
@@ -738,6 +856,7 @@ route('POST', '/api/agent/declare', async (req, res) => {
   await bump('agents');
   await arena('agent-lane', attackerOf(req), true);
   await logEvent('agent', `Agent declared (${mode}): ${(operator || 'unnamed operator').slice(0, 60)} (key ${keyHash}) - challenge skipped, budget from ${mode === 'delegated' ? 'the person’s share' : 'the network pool'}`, { lane: 'agent', attacker: attackerOf(req) });
+  layer2.observe(req, 'agent.declare', { verified: true, agentId: (operator || keyHash), actor: actorId, attacker: attackerOf(req), quiet: true, note: 'agent declared (' + mode + ')' });
   send(res, 200, { result: 'declared', mode, actor: actorId, agent_token: token, budget, note });
 });
 
@@ -782,6 +901,19 @@ route('GET', '/api/protected/quote', async (req, res) => {
     kind = 'anon';
     res.setHeader('Set-Cookie', 'pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax');
   }
+  // Post-verification layer: fold this request into the identity behind the pass, then decide.
+  const l2 = layer2.observe(req, 'protected', { actor: actorId, ok: true, usd: ledger.COST_PER_CALL, attacker: attackerOf(req), agent: (kind === 'agent' || (wba && wba.ok)) ? { verified: true, id: actorId } : undefined, quiet: true, note: 'protected call (' + kind + ')' });
+  if ((l2.decision === 'block' || l2.decision === 'step_up') && layer2.MODE === 'enforce') {
+    layer2.denied(l2.subject, ledger.COST_PER_CALL);
+    await bump('layer2Blocked');
+    await logEvent('blocked', `Layer 2 ${l2.decision}: ${actorId.slice(0, 18)} looks like ${l2.cls.replace('_', ' ')} (${Math.round(l2.conf * 100)}%)`, { actor: actorId, lane: 'layer2', attacker: attackerOf(req) });
+    return send(res, 403, {
+      error: l2.decision === 'block' ? 'layer2_blocked' : 'step_up_required', decision: l2.decision, class: l2.cls, confidence: l2.conf, subject: l2.subject,
+      reason: 'The post-verification layer linked this request to an identity that looks like ' + l2.cls.replace('_', ' ') + ': ' + l2.why + '.',
+      appeal_url: '/appeal?actor=' + encodeURIComponent(actorId), ...(l2.decision === 'step_up' ? { challenge_url: '/check' } : {}), declare_url: '/agent',
+    });
+  }
+  if (l2.decision !== 'allow') res.setHeader('X-CaptchaMe-L2', l2.decision + '; ' + l2.cls + '; shadow');
   // Layer 2 (abuseguard), when configured: one decision per person across every account and key linked to
   // them. In shadow mode (the default) the verdict is recorded and compared, never enforced. Fails open.
   let verdict = null;
@@ -896,6 +1028,7 @@ route('GET', '/api/admin/shield', async (req, res) => {
 route('POST', '/api/admin/reset', async (req, res) => {
   if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
   if (!store.reset()) return send(res, 400, { error: 'persistent_store', reason: 'Reset only works in in-memory mode; clear the Firestore collections instead.' });
+  layer2.reset();
   shield.reset(); doneSessions.clear(); traffic.reset();
   send(res, 200, { ok: true, reason: 'Cleared: ledger, events, appeals, arena scores, stats, shield state and the live access log. Early-access requests were kept.' });
 });
@@ -921,8 +1054,44 @@ route('GET', '/api/admin/abuseguard', async (req, res) => {
   send(res, 200, ag.status());
 });
 
+// ---------- layer 2: post-verification analysis ----------
+route('GET', '/api/layer2/overview', async (req, res) => { if (!adminOK(req)) return send(res, 403, { error: 'forbidden' }); send(res, 200, layer2.overview()); });
+route('GET', '/api/layer2/subject/:id', async (req, res, params) => {
+  if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
+  const d = layer2.detail(params.id);
+  if (!d) return send(res, 404, { error: 'not_found', reason: 'No identity with that id (it may have been merged into another one).' });
+  send(res, 200, d);
+});
+route('POST', '/api/layer2/reset', async (req, res) => { if (!adminOK(req)) return send(res, 403, { error: 'forbidden' }); layer2.reset(); send(res, 200, { ok: true }); });
+
+// ---------- live attack room ----------
+route('GET', '/api/live/feed', async (req, res) => {
+  const since = new URL(req.url, 'http://x').searchParams.get('since');
+  send(res, 200, { seq: live.last(), events: live.since(since) });
+});
+route('POST', '/api/live/reset', async (req, res) => { live.reset(); send(res, 200, { ok: true }); });
+// Built-in attackers, so the room can be shown without your own tools. They
+// hit this server over real HTTP with their own headers, like any client.
+const simbots = require('./lib/simbots');
+const simRunning = new Set();
+route('POST', '/api/live/simulate', async (req, res) => {
+  const body = await readBody(req);
+  if (!simbots.BOTS[body.bot]) return send(res, 400, { error: 'bad_bot', reason: 'bot must be one of ' + Object.keys(simbots.BOTS).join(', ') });
+  if (simRunning.has(body.bot)) return send(res, 409, { error: 'busy', reason: 'That simulator is already running.' });
+  if (simRunning.size >= 3) return send(res, 429, { error: 'busy', reason: 'Three simulators are already running.' });
+  const port = req.socket && req.socket.localPort;
+  if (!port) return send(res, 500, { error: 'no_port' });
+  simRunning.add(body.bot);
+  simbots.run(body.bot, port, { formats: body.formats }).catch(() => {}).finally(() => simRunning.delete(body.bot));
+  send(res, 202, { ok: true, bot: body.bot, label: simbots.BOTS[body.bot].label });
+});
+route('GET', '/api/live/bots', async (req, res) => {
+  send(res, 200, { bots: Object.entries(simbots.BOTS).map(([id, b]) => ({ id, label: b.label, blurb: b.blurb })), running: [...simRunning], market: live.MARKET });
+});
+
 // ---------- honeypot trap (invisible to people, visible to DOM-reading agents) ----------
 const trapHandler = async (req, res) => {
+  layer2.observe(req, 'trap', { attacker: attackerOf(req), quiet: true, note: 'trap link' });
   await bump('botsCaught');
   await arena('trap-link', attackerOf(req), false);
   if (ag.enabled) await ag.trapHit(cookies(req).pop_actor || 'anon:' + clientIp(req) + '|' + (req.headers['user-agent'] || ''), '/trap', req.headers['user-agent']);
@@ -951,6 +1120,7 @@ const handler = async (req, res) => {
   // /api/audit/live reads, with its real status and size.
   const t0 = Date.now(), end = res.end;
   res.end = function (chunk, ...rest) {
+    if (u.pathname === '/api/live/feed') return end.call(this, chunk, ...rest); // the room polls; keep it out of the audit log
     try {
       const bytes = chunk && typeof chunk !== 'function' ? Buffer.byteLength(chunk) : Number(res.getHeader('content-length')) || 0;
       traffic.record({ ip: clientIp(req), t: t0, method: req.method, path: req.url, status: res.statusCode, bytes, ua: req.headers['user-agent'] });

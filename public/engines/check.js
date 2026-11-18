@@ -7,7 +7,7 @@
   // When a protected form steps a visitor up to this check, the pass is bound
   // to that form's exact contents (a SHA-256 the parent page computed).
   const FORM = /^[a-f0-9]{64}$/i.test(new URLSearchParams(location.search).get('form') || '') ? new URLSearchParams(location.search).get('form').toLowerCase() : undefined;
-  const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0 }; } catch { return {}; } })();
+  const ENV = (() => { try { return { webdriver: navigator.webdriver === true, plugins: navigator.plugins ? navigator.plugins.length : 0, hardware: navigator.hardwareConcurrency || 0, langs: (navigator.languages || []).length, screen: screen.width + 'x' + screen.height, outer: (window.outerWidth || 0) + 'x' + (window.outerHeight || 0), tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || '').slice(0, 40) }; } catch { return {}; } })();
   const col = n => cmVar(n);
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
 

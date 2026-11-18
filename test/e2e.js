@@ -67,7 +67,7 @@ async function runChallenge(type, payloadFn, wait = true) {
 }
 
 (async () => {
-  const srv = spawn(process.execPath, [require('path').join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(PORT), POP_RATE_PER_MIN: '4000', POP_ACTIVE_GRACE_MS: '800' }, stdio: 'pipe' });
+  const srv = spawn(process.execPath, [require('path').join(__dirname, '..', 'server.js')], { env: { ...process.env, PORT: String(PORT), POP_RATE_PER_MIN: '4000', POP_ACTIVE_GRACE_MS: '800', LAYER2_MODE: 'shadow' }, stdio: 'pipe' });
   await new Promise(res => srv.stdout.once('data', res));
 
   console.log('\n== humans should pass ==');
