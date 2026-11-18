@@ -48,7 +48,42 @@
     try { BOTS = (await (await fetch('/api/live/bots', { cache: 'no-store' })).json()).bots.filter(b => ALLOWED.includes(b.id)); } catch { /* offline */ }
     sel.innerHTML = '<option value="person">You, as a person (follow the ring)</option>' + BOTS.map(b => '<option value="' + esc(b.id) + '">' + esc(b.label.replace(/^Sim: /, '')) + '</option>').join('');
     note();
+    buildDropdown();
   })();
+
+  // ---------- custom dropdown (the native select stays underneath for state and forms) ----------
+  function buildDropdown() {
+    const bar = $('runForm');
+    if (bar.querySelector('.dd')) return;
+    sel.classList.add('dd-native'); sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+    const dd = document.createElement('div'); dd.className = 'dd';
+    const first = s => String(s || '').split(/[.:]/)[0].slice(0, 70);
+    const items = [{ v: 'person', t: 'You, as a person', d: 'Follow the ring with your pointer', g: 'You' }].concat(BOTS.map(b => ({ v: b.id, t: b.label.replace(/^Sim: /, ''), d: first(b.blurb), g: 'Attackers' })));
+    dd.innerHTML = '<button type="button" class="dd-btn" aria-haspopup="listbox" aria-expanded="false"><span class="dd-cur"></span><svg class="dd-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><ul class="dd-list" role="listbox" tabindex="-1" hidden></ul>';
+    sel.after(dd);
+    const btn = dd.querySelector('.dd-btn'), list = dd.querySelector('.dd-list'), cur = dd.querySelector('.dd-cur');
+    let lastG = '', html = '';
+    items.forEach((it, i) => { if (it.g !== lastG) { html += '<li class="dd-g" role="presentation">' + esc(it.g) + '</li>'; lastG = it.g; } html += '<li class="dd-o" role="option" data-v="' + esc(it.v) + '" data-i="' + i + '"><i class="dd-dot ' + (it.v === 'person' ? 'p' : 'b') + '"></i><span><b>' + esc(it.t) + '</b><small>' + esc(it.d) + '</small></span><svg class="dd-ck" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></li>'; });
+    list.innerHTML = html;
+    const opts = [...list.querySelectorAll('.dd-o')];
+    let hi = 0;
+    function paint() { const v = sel.value; const it = items.find(x => x.v === v) || items[0]; cur.innerHTML = '<i class="dd-dot ' + (it.v === 'person' ? 'p' : 'b') + '"></i>' + esc(it.t); opts.forEach((o, i) => { o.setAttribute('aria-selected', o.dataset.v === v ? 'true' : 'false'); o.classList.toggle('hi', i === hi); }); }
+    function open() { list.hidden = false; btn.setAttribute('aria-expanded', 'true'); dd.classList.add('open'); hi = Math.max(0, opts.findIndex(o => o.dataset.v === sel.value)); paint(); }
+    function shut() { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); dd.classList.remove('open'); }
+    function pick(i) { sel.value = opts[i].dataset.v; sel.dispatchEvent(new Event('change')); paint(); shut(); btn.focus(); }
+    btn.addEventListener('click', () => (list.hidden ? open() : shut()));
+    list.addEventListener('click', e => { const o = e.target.closest('.dd-o'); if (o) pick(Number(o.dataset.i)); });
+    list.addEventListener('mousemove', e => { const o = e.target.closest('.dd-o'); if (o) { hi = Number(o.dataset.i); opts.forEach((x, i) => x.classList.toggle('hi', i === hi)); } });
+    dd.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { shut(); btn.focus(); return; }
+      if (['ArrowDown', 'ArrowUp'].includes(e.key)) { e.preventDefault(); if (list.hidden) { open(); return; } hi = (hi + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length; paint(); opts[hi].scrollIntoView({ block: 'nearest' }); }
+      if ((e.key === 'Enter' || e.key === ' ') && !list.hidden) { e.preventDefault(); pick(hi); }
+    });
+    document.addEventListener('click', e => { if (!dd.contains(e.target)) shut(); });
+    sel.addEventListener('change', paint);
+    paint();
+  }
+
   function note() { if (sel.value === 'person') { sug.innerHTML = '<b>You</b> Follow the moving ring with your pointer when it appears. A person passes; layer 2 then confirms you are one.'; return; } const b = BOTS.find(x => x.id === sel.value); sug.innerHTML = b ? '<b>' + esc(b.label.replace(/^Sim: /, '')) + '</b> ' + esc(b.blurb) : 'Loading attackers...'; }
   sel.addEventListener('change', note);
 

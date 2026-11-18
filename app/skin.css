@@ -326,3 +326,31 @@ body > footer, .footer { z-index: 0; }
 .rn-go { height: 3px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin: 0 0 4px; }
 .rn-go i { display: block; height: 100%; background: var(--brand); transform-origin: left; animation: rnGo 2.6s linear both; }
 @keyframes rnGo { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ---------- custom dropdown ---------- */
+.th-bar { position: relative; }
+.dd-native { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
+.dd { position: relative; flex: 1; min-width: 0; }
+.dd-btn { width: 100%; display: flex; align-items: center; gap: 12px; justify-content: space-between; background: transparent; color: var(--text); border: 0; border-radius: 14px; padding: 12px 10px; font: 500 19px var(--font-body); text-align: left; box-shadow: none; cursor: pointer; }
+.dd-btn:hover { background: color-mix(in srgb, var(--brand) 6%, transparent); box-shadow: none; transform: none; }
+.dd-cur { display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-chev { flex: none; color: var(--muted); transition: transform .3s cubic-bezier(.2,.8,.2,1), color .2s; }
+.dd.open .dd-chev { transform: rotate(180deg); color: var(--brand-text); }
+.dd-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dd-dot.p { background: var(--human); box-shadow: 0 0 10px var(--human); }
+.dd-dot.b { background: var(--bot); box-shadow: 0 0 10px color-mix(in srgb, var(--bot) 70%, transparent); }
+.dd-list { position: absolute; z-index: 60; left: -10px; right: -10px; top: calc(100% + 14px); margin: 0; padding: 8px; list-style: none; max-height: 380px; overflow-y: auto; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--line-2); border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px color-mix(in srgb, var(--brand) 12%, transparent); animation: ddIn .22s cubic-bezier(.2,.9,.25,1) both; transform-origin: top; }
+.dd-list[hidden] { display: none; }
+@keyframes ddIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+.dd-g { padding: 10px 12px 4px; color: var(--faint); font: 700 10.5px var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.dd-o { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; cursor: pointer; color: var(--muted); transition: background .12s, color .12s; }
+.dd-o b { display: block; color: var(--text); font: 600 15.5px var(--font-body); }
+.dd-o small { display: block; color: var(--faint); font: 400 12.5px var(--font-body); margin-top: 1px; }
+.dd-o span { flex: 1; min-width: 0; }
+.dd-o.hi { background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.dd-o .dd-ck { flex: none; color: var(--brand-text); opacity: 0; transform: scale(.6); transition: opacity .15s, transform .2s; }
+.dd-o[aria-selected="true"] .dd-ck { opacity: 1; transform: none; }
+.dd-o[aria-selected="true"] b { color: var(--brand-text); }
+@media (max-width: 640px) { .dd-btn { font-size: 16px; } .dd-list { left: 0; right: 0; } }
+.th-bar { z-index: 20; }
+.dd-list { background: color-mix(in srgb, var(--surface) 98%, transparent); }
