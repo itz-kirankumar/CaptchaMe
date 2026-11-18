@@ -5,10 +5,11 @@ import { useEffect, useState } from 'react';
 import Logo from './Logo';
 
 export const LINKS = [
-  ['/check', 'Risk ladder'],
   ['/live', 'Live run'],
   ['/layer2', 'Layer 2'],
   ['/audit', 'Audit'],
+  ['/#livestack', 'Live gateway'],
+  ['/check', 'Risk ladder'],
   ['/arena', 'Arena'],
   ['/scraper', 'Scraper shield'],
   ['/agent', 'Agent lane'],

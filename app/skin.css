@@ -164,3 +164,5 @@ body.th-lock { overflow: hidden; }
 [hidden] { display: none !important; }
 .th-li { animation: none !important; }
 .th-card.still, .th-ln.still { animation: none !important; }
+.nav .btn, .nav button { white-space: nowrap; }
+.nav .links a { padding: 7px 8px; }

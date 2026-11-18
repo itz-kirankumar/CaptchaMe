@@ -47,6 +47,13 @@ export default function Home() {
       <div><b id="st-scrape">-</b><span>scraper requests stopped</span></div>
     </div>
 
+    <section className="block" id="livestack">
+      <span className="kicker">Live on this page</span>
+      <h2 className="section">Watch a request cross every layer</h2>
+      <p className="section-sub">Pick an actor and press run. This page makes the real API calls your product would make, and streams what each layer decides. Nothing staged: the hashes, verdicts and network numbers below come from the running backend.</p>
+      <div className="lv" id="lvapp"></div>
+    </section>
+
     <section className="block">
       <span className="kicker">Why captchas fell</span>
       <h2 className="section">Every puzzle is now a paid API call</h2>
@@ -119,6 +126,6 @@ export default function Home() {
       <span><b>Bots, go ahead. Try.</b><small>Point Buster, 2Captcha, CapSolver or a browser agent at the classic formats, then at CaptchaMe.</small></span>
       <span className="go">Open the arena</span>
     </Link>
-    <ScriptEngine srcs={['/engines/home.js', '/engines/home-run.js']} />
+    <ScriptEngine srcs={['/engines/home.js', '/engines/layers.js', '/engines/home-run.js']} />
   </>);
 }

@@ -36,7 +36,7 @@
     ['text', 'Distorted text'], ['grid', 'Image grid'], ['math', 'Math'], ['slider', 'Slider'],
     ['rotate', 'Rotate'], ['click', 'Click in order'], ['checkbox', 'Bare checkbox'], ['pow', 'Proof of work'],
   ];
-  list.innerHTML = CLASSIC.map(([t, name]) => '<div class="cap" data-type="' + t + '"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new>New</button></div><div class="body"></div><div class="res"></div></div>').join('');
+  list.innerHTML = CLASSIC.map(([t, name]) => '<div class="cap" data-type="' + t + '"><div class="cap-head"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new title="Load a fresh puzzle">Refresh</button></div><div class="body"></div><div class="res"></div></div>').join('');
 
   async function load(card) {
     const type = card.getAttribute('data-type');
@@ -103,6 +103,25 @@
   }
   list.addEventListener('click', e => { const b = e.target.closest('[data-new]'); if (b) load(b.closest('.cap')); });
   list.querySelectorAll('.cap').forEach(load);
+
+  const refreshAll = document.getElementById('refreshAllCaptchas');
+  refreshAll.addEventListener('click', async () => {
+    if (refreshAll.disabled) return;
+    refreshAll.disabled = true;
+    const labelText = refreshAll.textContent;
+    refreshAll.textContent = 'Loading fresh captchas...';
+
+    await Promise.all(Array.from(list.querySelectorAll('.cap'), card => load(card)));
+
+    const cmFrame = document.getElementById('cmFrame');
+    cmFrame.src = '/check?embed=1&fresh=' + Date.now();
+
+    refreshAll.textContent = 'All captchas refreshed';
+    setTimeout(() => {
+      refreshAll.textContent = labelText;
+      refreshAll.disabled = false;
+    }, 900);
+  });
 
   // ---------- real vendor widgets (opt-in) ----------
   const VENDORS = [

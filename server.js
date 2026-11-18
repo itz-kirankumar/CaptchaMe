@@ -203,10 +203,56 @@ function makeParams(type) {
   return params;
 }
 
+// ---------- API: the unified gateway ----------
+// One front door. Every request is sorted into a lane by the same layers the
+// site demonstrates one by one. /api/decide routes; it does not mint passes.
+route('POST', '/api/decide', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('decide:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited', reason: 'Too many decisions. Wait a minute.' });
+  const body = await readBody(req, 300000) || {};
+  const layers = [];
+  // 1. agent lane: a Web Bot Auth signature sorts a request before anything else
+  const wba = await webbotauth.verifyRequest(req);
+  layers.push({ layer: 'agent_lane', result: wba ? (wba.ok ? 'verified' : 'bad_signature') : 'no_signature' });
+  if (wba && !wba.ok) return send(res, 401, { lane: 'agent', action: 'block', reason: 'Web Bot Auth signature did not verify: ' + wba.reason, layers });
+  if (wba && wba.ok) {
+    const actorId = 'agent:wba:' + wba.agent;
+    const a = await ledger.ensureActor(actorId, 'verified');
+    return send(res, 200, { lane: 'agent', action: 'meter', operator: wba.agent, budget: ledger.remaining(a), layers });
+  }
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) {
+    const v = tokens.verify(auth.slice(7), { consume: false });
+    layers.push({ layer: 'bearer_pass', result: v.ok ? 'valid' : 'invalid' });
+    if (v.ok && v.kind === 'agent') { const a = await ledger.ensureActor(v.actor, 'agent'); return send(res, 200, { lane: 'agent', action: 'meter', actor: v.actor, budget: ledger.remaining(a), layers }); }
+    if (v.ok) return send(res, 200, { lane: 'human', action: 'allow', via: v.via || 'pass', layers });
+  }
+  // 2. scraper shield: how the request itself behaves
+  const sv = shield.assess(shieldMeta(req, { page: Number(body.page) || 1 }));
+  layers.push({ layer: 'scraper_shield', decision: sv.decision, risk: sv.score, reasons: sv.reasons });
+  if (sv.decision !== 'allow') return send(res, 200, { lane: 'scraper', action: sv.decision, reasons: sv.reasons, retry_after_ms: sv.retryAfterMs, layers });
+  // 3. live page context
+  const pn = pageNonceCheck(req, body.page_nonce);
+  layers.push({ layer: 'page_context', result: pn.ok ? 'live_page' : 'no_page_nonce' });
+  if (!pn.ok) return send(res, 200, { lane: 'unverified', action: 'challenge', reasons: ['no live page context: serve a step-up check'], challenge_url: '/check?embed=1&format=auto', layers });
+  // 4. passive signals, when the page has them to send
+  if (body.telemetry) {
+    const r = passive.scorePassive(body.telemetry, shield.networkRisk(netMeta(req)));
+    layers.push({ layer: 'passive_signals', tier: r.tier, evidence: r.evidence });
+    if (r.tier === 'pass') return send(res, 200, { lane: 'human', action: 'silent_pass', evidence: r.evidence, layers });
+    if (r.tier === 'nudge') return send(res, 200, { lane: 'human', action: 'nudge', reasons: r.reasons, layers });
+    return send(res, 200, { lane: 'unverified', action: 'challenge', reasons: r.reasons, challenge_url: '/check?embed=1&format=auto', layers });
+  }
+  return send(res, 200, { lane: 'unverified', action: 'interact', reasons: ['live page confirmed; waiting for interaction signals'], layers });
+});
+
+
 route('POST', '/api/challenge/start', async (req, res) => {
   const ip = clientIp(req);
   if (!rateLimit(ip)) return send(res, 429, { error: 'rate_limited', reason: 'Too many challenge starts. Wait a minute.' });
   const body = await readBody(req);
+  const pn = pageNonceCheck(req, body && body.page_nonce);
+  if (!pn.ok) return send(res, 403, { error: 'no_page_nonce', reason: 'Challenges start from a live page view. A page running the CaptchaMe script holds a fresh page nonce from /api/page/nonce; a bare API call does not.' });
   const id = crypto.randomBytes(12).toString('hex');
   const type = body.type === 'auto' ? AUTO_TYPES[Math.floor(Math.random() * AUTO_TYPES.length)] : body.type;
   let params = makeParams(type);
@@ -725,6 +771,54 @@ async function mintSilent(req, via, form, attacker, note) {
   await agPassed(req, actorId);
   return tokens.mint(actorId, 'human', reqBind(req), { form, via });
 }
+function pageNonceSign(b64) { return crypto.createHmac('sha256', SESSION_SECRET).update('pgn:' + b64).digest('base64url'); }
+function netHash(req) { return crypto.createHmac('sha256', SESSION_SECRET).update('nh:' + clientIp(req) + '|' + (req.headers['user-agent'] || '')).digest('base64url').slice(0, 16); }
+function pageNonceMint(req) {
+  const payload = { iat: Date.now(), exp: Date.now() + 10 * 60e3, nh: netHash(req), f: 'cm_' + crypto.randomBytes(5).toString('hex') };
+  const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return { nonce: b64 + '.' + pageNonceSign(b64), field: payload.f, ttl_ms: 10 * 60e3 };
+}
+function pageNonceCheck(req, nonce) {
+  if (typeof nonce !== 'string' || nonce.length > 400) return { ok: false };
+  const dot = nonce.lastIndexOf('.');
+  if (dot < 1) return { ok: false };
+  const b64 = nonce.slice(0, dot);
+  const a = Buffer.from(nonce.slice(dot + 1)), b = Buffer.from(pageNonceSign(b64));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false };
+  let p;
+  try { p = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); } catch { return { ok: false }; }
+  if (!p || Date.now() > p.exp || p.nh !== netHash(req)) return { ok: false };
+  return { ok: true, field: p.f };
+}
+route('GET', '/api/page/nonce', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('nonce:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited' });
+  send(res, 200, pageNonceMint(req));
+});
+route('POST', '/api/page/nonce', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('nonce:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited' });
+  send(res, 200, pageNonceMint(req));
+});
+
+
+// ---------- API: public stats ----------
+// Tiny endpoint the widget pings to measure network round trip while a
+// challenge runs. The verdict compares RTT with reaction lag.
+route('GET', '/api/ping', async (req, res) => { send(res, 200, { t: Date.now() }); });
+route('POST', '/api/ping', async (req, res) => { send(res, 200, { t: Date.now() }); });
+
+// Page JS beacons once per page view, so the shield can score asset loads it
+// observed itself instead of trusting a caller-supplied "js ran" flag.
+route('POST', '/api/shield/beacon', async (req, res) => {
+  if (!rateLimit('beacon:' + clientIp(req), 600)) return send(res, 429, { error: 'rate_limited' });
+  const jar = cookies(req);
+  const key = shield.keyFor({ ip: clientIp(req), ua: req.headers['user-agent'] || '', vid: jar.cm_vid || '' });
+  const ok = shield.beacon(key, null);
+  send(res, 200, { ok });
+});
+
+
 route('POST', '/api/pass/silent', async (req, res) => {
   cors(req, res);
   if (!rateLimit('silent:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited', reason: 'Too many checks. Wait a minute.' });
@@ -1127,7 +1221,7 @@ const handler = async (req, res) => {
     } catch { /* logging never breaks a response */ }
     return end.call(this, chunk, ...rest);
   };
-  if (req.method === 'OPTIONS' && u.pathname.startsWith('/api/pass/')) { cors(req, res); res.writeHead(204); return res.end(); }
+  if (req.method === 'OPTIONS' && (u.pathname.startsWith('/api/pass/') || u.pathname.startsWith('/api/page/'))) { cors(req, res); res.writeHead(204); return res.end(); }
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = r.rx.exec(u.pathname);

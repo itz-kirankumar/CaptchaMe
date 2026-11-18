@@ -45,7 +45,8 @@ async function collectCues(start, hdr) {
 }
 // A person-shaped ring run. waitFrac 1.05 = performs the whole challenge; 0.78 = answers early with the same samples.
 async function humanRun(hdr, env, seed, waitFrac) {
-  const start = await req('POST', '/api/challenge/start', { type: 'ring' }, hdr);
+  const nn = await req('GET', '/api/page/nonce', null, hdr);
+  const start = await req('POST', '/api/challenge/start', { type: 'ring', page_nonce: nn.body && nn.body.nonce }, hdr);
   const t0 = Date.now(), c = await collectCues(start, hdr);
   const samples = actors.humanRing(c.live, seed);
   await sleep(Math.max(0, waitFrac * start.body.params.durationMs - (Date.now() - t0)));

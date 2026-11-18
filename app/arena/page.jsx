@@ -34,6 +34,7 @@ export default function Page() {
       <input id="attackerInput" placeholder="custom label" aria-label="Custom attacker label" maxLength={40} />
       <button className="sm ghost" id="attackerSet">Set</button>
       <span className="spacer"></span>
+      <button className="sm" id="refreshAllCaptchas" title="Load a fresh puzzle for every classic format and restart the CaptchaMe widget">Refresh all captchas</button>
       <span className="note" style={{ margin: 0 }}>now: <b id="attackerNow" className="mono">unlabelled</b></span>
     </div>
 
