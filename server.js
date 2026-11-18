@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const tokens = require('./lib/tokens');
 const scoring = require('./lib/scoring');
 const ledger = require('./lib/ledger');
+const store = require('./lib/store');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_KEY = process.env.POP_ADMIN_KEY || 'demo-admin';
@@ -50,12 +51,12 @@ function cookies(req) {
   return out;
 }
 
-// ---------- event feed for the dashboard ----------
-const events = [];
-let eventSeq = 0;
-function logEvent(type, message, extra = {}) {
-  events.push({ seq: ++eventSeq, at: Date.now(), type, message, ...extra });
-  if (events.length > 2000) events.splice(0, 1000);
+// ---------- event feed for the dashboard (store-backed) ----------
+async function logEvent(type, message, extra = {}) {
+  try {
+    const seq = await store.nextEventSeq();
+    await store.addEvent({ seq, at: Date.now(), type, message, ...extra });
+  } catch (e) { /* feed is best-effort; never break a request over it */ }
 }
 
 // ---------- challenge sessions ----------
@@ -155,7 +156,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   const sess = readSession(body.session);
   if (!sess) return send(res, 410, { error: 'session_gone', reason: 'Challenge expired or was tampered with. Start a fresh one.' });
   if (doneSessions.has(sess.id)) {
-    logEvent('replay', `Replay blocked: session ${sess.id.slice(0, 6)} submitted twice`, { lane: sess.type });
+    await logEvent('replay', `Replay blocked: session ${sess.id.slice(0, 6)} submitted twice`, { lane: sess.type });
     return send(res, 409, { error: 'replay', reason: 'This challenge was already answered. Challenges work once.' });
   }
   doneSessions.add(sess.id);
@@ -188,15 +189,15 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
 
   if (passed) {
-    const rec = ledger.ensureActor(actorId, 'anonymous');
+    const rec = await ledger.ensureActor(actorId, 'anonymous');
     rec.kind = 'human';
-    ledger.grant(actorId, ledger.DEFAULTS.human, 'presence verified (+' + '$2.00)');
+    await ledger.grant(actorId, ledger.DEFAULTS.human, 'presence verified (+' + '$2.00)');
     const pass = tokens.mint(actorId, 'human');
     res.setHeader('Set-Cookie', 'pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax');
-    logEvent('pass', `Human verified via ${sess.type} (score ${result.score})`, { lane: sess.type, score: result.score });
+    await logEvent('pass', `Human verified via ${sess.type} (score ${result.score})`, { lane: sess.type, score: result.score });
     send(res, 200, { result: 'pass', score: result.score, flags: result.flags, detail: result.detail, pass_token: pass, actor: actorId, budget_added: ledger.DEFAULTS.human });
   } else {
-    logEvent('fail', `${sess.type} check failed (score ${result.score}): ${result.flags[0] || 'low score'}`, { lane: sess.type, score: result.score, flags: result.flags });
+    await logEvent('fail', `${sess.type} check failed (score ${result.score}): ${result.flags[0] || 'low score'}`, { lane: sess.type, score: result.score, flags: result.flags });
     send(res, 200, { result: 'fail', score: result.score, flags: result.flags, detail: result.detail, reason: result.flags[0] || 'The response did not look like a live person. Try again, or use another path.' });
   }
 });
@@ -249,7 +250,7 @@ route('POST', '/api/voice/stt', async (req, res) => {
     }
     const j = await r.json();
     const transcript = (j.transcript || j.text || '').trim();
-    logEvent('call', `Sarvam STT used for a voice check (#${sttDaily.n} today)`, { lane: 'voice' });
+    await logEvent('call', `Sarvam STT used for a voice check (#${sttDaily.n} today)`, { lane: 'voice' });
     send(res, 200, { transcript, engine: 'sarvam' });
   } catch (e) {
     send(res, 502, { error: 'stt_failed', reason: 'Speech service unreachable. Browser fallback still works.' });
@@ -276,14 +277,14 @@ route('POST', '/api/agent/declare', async (req, res) => {
     ok = crypto.verify(null, Buffer.from(nonce, 'utf8'), key, Buffer.from(signature, 'base64'));
   } catch { ok = false; }
   if (!ok) {
-    logEvent('fail', 'Agent declaration failed: bad signature');
+    await logEvent('fail', 'Agent declaration failed: bad signature');
     return send(res, 403, { error: 'bad_signature', reason: 'Signature did not verify against the public key.' });
   }
   const keyHash = crypto.createHash('sha256').update(pubkey).digest('hex').slice(0, 12);
   const actorId = 'agent:' + keyHash;
-  ledger.ensureActor(actorId, 'agent');
+  await ledger.ensureActor(actorId, 'agent');
   const token = tokens.mint(actorId, 'agent');
-  logEvent('agent', `Agent declared: ${(operator || 'unnamed operator').slice(0, 60)} (key ${keyHash}) - challenge skipped, own budget granted`, { lane: 'agent' });
+  await logEvent('agent', `Agent declared: ${(operator || 'unnamed operator').slice(0, 60)} (key ${keyHash}) - challenge skipped, own budget granted`, { lane: 'agent' });
   send(res, 200, { result: 'declared', actor: actorId, agent_token: token, budget: ledger.DEFAULTS.agent, note: 'Declared agents skip the human checks and get their own fair-share budget.' });
 });
 
@@ -298,20 +299,20 @@ route('GET', '/api/protected/quote', async (req, res) => {
     const v = tokens.verify(auth.slice(7), { consume: false });
     if (!v.ok) return send(res, 401, { error: 'invalid_token', reason: v.reason });
     actorId = v.actor; kind = v.kind;
-    ledger.ensureActor(actorId, kind === 'agent' ? 'agent' : 'anonymous');
+    await ledger.ensureActor(actorId, kind === 'agent' ? 'agent' : 'anonymous');
   } else if (jar.pop_actor) {
     actorId = jar.pop_actor.startsWith('human:') || jar.pop_actor.startsWith('agent:') ? jar.pop_actor : 'human:' + jar.pop_actor;
-    ledger.ensureActor(actorId, 'anonymous');
+    await ledger.ensureActor(actorId, 'anonymous');
     kind = 'anon';
   } else {
     actorId = 'human:' + crypto.randomBytes(6).toString('hex');
-    ledger.ensureActor(actorId, 'anonymous');
+    await ledger.ensureActor(actorId, 'anonymous');
     kind = 'anon';
     res.setHeader('Set-Cookie', 'pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax');
   }
-  const charge = ledger.spend(actorId, ledger.COST_PER_CALL);
+  const charge = await ledger.spend(actorId, ledger.COST_PER_CALL);
   if (!charge.ok) {
-    logEvent('blocked', `Fair-share cap: ${actorId.slice(0, 18)} blocked (${charge.body.error})`, { actor: actorId });
+    await logEvent('blocked', `Fair-share cap: ${actorId.slice(0, 18)} blocked (${charge.body.error})`, { actor: actorId });
     return send(res, charge.status, charge.body);
   }
   const QUOTES = [
@@ -319,7 +320,7 @@ route('GET', '/api/protected/quote', async (req, res) => {
     'This endpoint stands in for any paid AI API: LLM tokens, image runs, search credits.',
     'The ledger, not the puzzle, is what keeps one actor from draining the pool.',
   ];
-  logEvent('call', `API call served to ${actorId.slice(0, 18)} ($${ledger.COST_PER_CALL.toFixed(2)})`, { actor: actorId });
+  await logEvent('call', `API call served to ${actorId.slice(0, 18)} ($${ledger.COST_PER_CALL.toFixed(2)})`, { actor: actorId });
   send(res, 200, { quote: QUOTES[Math.floor(Math.random() * QUOTES.length)], charged: ledger.COST_PER_CALL, remaining: charge.remaining });
 });
 
@@ -328,15 +329,15 @@ route('GET', '/api/ledger/me', async (req, res) => {
   const jar = cookies(req);
   const actorId = jar.pop_actor ? (jar.pop_actor.startsWith('human:') || jar.pop_actor.startsWith('agent:') ? jar.pop_actor : 'human:' + jar.pop_actor) : null;
   if (!actorId) return send(res, 200, { actor: null });
-  const a = ledger.getActor(actorId);
+  const a = await ledger.getActor(actorId);
   send(res, 200, { actor: a ? { id: a.id, kind: a.kind, spent: +a.spent.toFixed(2), granted: a.granted, remaining: ledger.remaining(a) } : null });
 });
 
 route('POST', '/api/appeal', async (req, res) => {
   const body = await readBody(req);
   if (!body.actor || !body.message) return send(res, 400, { error: 'bad_request', reason: 'actor and message are required.' });
-  const ap = ledger.fileAppeal(body.actor, body.message);
-  logEvent('appeal', `Appeal filed by ${String(body.actor).slice(0, 18)}`, { actor: body.actor });
+  const ap = await ledger.fileAppeal(body.actor, body.message);
+  await logEvent('appeal', `Appeal filed by ${String(body.actor).slice(0, 18)}`, { actor: body.actor });
   send(res, 200, { ok: true, appeal_id: ap.id, reason: 'Appeal received. A human reviews every one; you will never be silently blocked.' });
 });
 
@@ -345,28 +346,28 @@ function adminOK(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 route('GET', '/api/admin/events', async (req, res) => {
   if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
   const since = +(new URL(req.url, 'http://x').searchParams.get('since') || 0);
-  send(res, 200, { events: events.filter(e => e.seq > since).slice(-200) });
+  send(res, 200, { events: (await store.eventsSince(since)).slice(-200) });
 });
 route('GET', '/api/admin/actors', async (req, res) => {
   if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
-  send(res, 200, { actors: ledger.table(), summary: ledger.summary() });
+  send(res, 200, { actors: await ledger.table(), summary: await ledger.summary() });
 });
 route('GET', '/api/admin/appeals', async (req, res) => {
   if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
-  send(res, 200, { appeals: ledger.appeals.slice(-50) });
+  send(res, 200, { appeals: (await ledger.listAppeals()).slice(0, 50) });
 });
 route('POST', '/api/admin/appeal/:id', async (req, res, params) => {
   if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
   const body = await readBody(req);
-  const ap = ledger.resolveAppeal(+params.id, body.action);
+  const ap = await ledger.resolveAppeal(+params.id, body.action);
   if (!ap) return send(res, 404, { error: 'not_found' });
-  logEvent('appeal', `Appeal #${ap.id} ${ap.status} (${ap.actorId.slice(0, 18)})`, {});
+  await logEvent('appeal', `Appeal #${ap.id} ${ap.status} (${ap.actorId.slice(0, 18)})`, {});
   send(res, 200, { ok: true, appeal: ap });
 });
 
 // ---------- honeypot trap (invisible to people, visible to DOM-reading agents) ----------
 route('GET', '/trap', async (req, res) => {
-  logEvent('trap', 'Trap link followed: only something reading the raw DOM would see it', { lane: 'trap' });
+  await logEvent('trap', 'Trap link followed: only something reading the raw DOM would see it', { lane: 'trap' });
   send(res, 200, '<!doctype html><title>Trap</title><body style="background:#0b0e14;color:#e8ecf4;font-family:sans-serif;padding:40px">This link is invisible to people and marked hidden from assistive tech. Only a program reading the raw page could follow it. This visit has been logged as automated traffic.</body>', { 'Content-Type': 'text/html' });
 });
 
