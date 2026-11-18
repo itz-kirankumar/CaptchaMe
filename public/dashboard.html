@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Live dashboard</h1>
+<p class="sub">Every check, call, block and appeal, as it happens.</p>
+<div class="card" id="summary">Loading...</div>
+<div class="card">
+  <h2 style="margin-top:0">Fair-share ledger</h2>
+  <table><thead><tr><th>Actor</th><th>Kind</th><th>Spent</th><th>Allowance</th><th>Left</th><th>Blocked</th></tr></thead><tbody id="actors"></tbody></table>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Appeals</h2>
+  <div id="appeals" class="feed"></div>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Event feed</h2>
+  <div id="feed" class="feed"></div>
+</div>
+<p class="note"><a style="color:var(--accent)" href="/">Home</a></p>
+<script>
+const KEY = new URLSearchParams(location.search).get('key') || 'demo-admin';
+let since = 0;
+async function pull() {
+  try {
+    const h = { 'X-Admin-Key': KEY };
+    const [ev, ac, ap] = await Promise.all([
+      fetch('/api/admin/events?since=' + since, { headers: h }).then(r => r.json()),
+      fetch('/api/admin/actors', { headers: h }).then(r => r.json()),
+      fetch('/api/admin/appeals', { headers: h }).then(r => r.json()),
+    ]);
+    if (ev.events) {
+      const feed = document.getElementById('feed');
+      for (const e of ev.events) {
+        since = Math.max(since, e.seq);
+        const d = document.createElement('div');
+        const t = new Date(e.at).toLocaleTimeString();
+        d.innerHTML = `<span class="tag ${e.type}">${e.type}</span>`;
+        d.appendChild(document.createTextNode(t + '  ' + e.message));
+        feed.prepend(d);
+      }
+    }
+    if (ac.actors) {
+      document.getElementById('actors').innerHTML = ac.actors.map(a =>
+        `<tr><td><code>${a.id}</code></td><td>${a.kind}</td><td>$${a.spent.toFixed(2)}</td><td>$${a.granted.toFixed(2)}</td><td>$${a.remaining.toFixed(2)}</td><td>${a.blocked}</td></tr>`).join('');
+      const s = ac.summary;
+      document.getElementById('summary').innerHTML =
+        `<b>$${s.estimatedSaved.toFixed(2)}</b> of shared compute protected &middot; ${s.blockedCalls} over-cap calls refused &middot; ${s.actors} actors &middot; ${s.openAppeals} open appeals`;
+    }
+    if (ap.appeals) {
+      document.getElementById('appeals').innerHTML = ap.appeals.length ? ap.appeals.map(a =>
+        `<div><span class="tag appeal">#${a.id} ${a.status}</span><code>${a.actorId}</code> - ${a.message.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}` +
+        (a.status === 'open' ? ` <button style="padding:4px 12px;font-size:12px" onclick="resolveAppeal(${a.id},'approve')">Approve +$1</button> <button class="ghost" style="padding:4px 12px;font-size:12px" onclick="resolveAppeal(${a.id},'deny')">Deny</button>` : '') +
+        `</div>`).join('') : 'No appeals yet.';
+    }
+  } catch (e) { /* keep polling */ }
+  setTimeout(pull, 1200);
+}
+async function resolveAppeal(id, action) {
+  await fetch('/api/admin/appeal/' + id, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Key': KEY }, body: JSON.stringify({ action }) });
+}
+pull();
+</script>
+</main></body></html>

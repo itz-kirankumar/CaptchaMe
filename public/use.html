@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Use the protected API</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>The protected API</h1>
+<p class="sub">This endpoint stands in for any paid AI API. Each call costs $0.10 from your fair-share allowance. You start with a small free taste; a passed check or a declared agent key adds more.</p>
+<div class="card">
+  <div id="me">Loading your allowance...</div>
+  <p style="margin-top:14px"><button id="call">Call the API ($0.10)</button></p>
+  <div class="feed" id="log" style="margin-top:10px"></div>
+</div>
+<div id="out"></div>
+<p class="note"><a style="color:var(--accent)" href="/">Home</a> &middot; <a style="color:var(--accent)" href="/check.html">Prove presence</a> &middot; <a style="color:var(--accent)" href="/voice.html">Voice path</a></p>
+<script>
+const me = document.getElementById('me'), log = document.getElementById('log'), out = document.getElementById('out');
+function line(text, cls) { const d = document.createElement('div'); if (cls) d.innerHTML = `<span class="tag ${cls}">${cls}</span>`; d.appendChild(document.createTextNode(text)); log.prepend(d); }
+async function refresh() {
+  const b = await (await fetch('/api/ledger/me')).json();
+  me.innerHTML = b.actor
+    ? `Actor <code>${b.actor.id}</code> (${b.actor.kind}) - spent $${b.actor.spent.toFixed(2)} of $${b.actor.granted.toFixed(2)}, <b>$${b.actor.remaining.toFixed(2)} left</b>`
+    : 'No allowance yet. Call once for a free taste, or prove presence first.';
+}
+document.getElementById('call').addEventListener('click', async () => {
+  const r = await fetch('/api/protected/quote');
+  const b = await r.json();
+  if (r.status === 429) {
+    line(b.reason, 'blocked');
+    out.innerHTML = `<div class="result fail">Budget spent. ${b.reason}<br><br><a href="${b.appeal_url}" style="color:var(--accent)">Appeal this cap</a> or <a href="/check.html" style="color:var(--accent)">prove presence</a> for more.</div>`;
+  } else if (r.ok) { line(`${b.quote} ($${b.remaining.toFixed(2)} left)`, 'call'); }
+  else { line(b.reason || ('HTTP ' + r.status), 'fail'); }
+  refresh();
+});
+refresh();
+</script>
+</main></body></html>

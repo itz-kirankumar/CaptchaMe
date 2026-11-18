@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Appeal</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Appeal a cap</h1>
+<p class="sub">Never a silent block. If the fair-share cap caught you by mistake, say so. A human reviews every appeal and can overturn it.</p>
+<div class="card">
+  <form id="f">
+    <label>Your actor id <input id="actor" required></label>
+    <label>What happened? <textarea id="msg" rows="4" required placeholder="I am a real person testing the demo and my allowance ran out..."></textarea></label>
+    <button>Send appeal</button>
+  </form>
+  <div id="out"></div>
+</div>
+<p class="note"><a style="color:var(--accent)" href="/">Home</a></p>
+<script>
+document.getElementById('actor').value = new URLSearchParams(location.search).get('actor') || '';
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const r = await fetch('/api/appeal', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actor: document.getElementById('actor').value, message: document.getElementById('msg').value }) });
+  const b = await r.json();
+  document.getElementById('out').innerHTML = r.ok ? `<div class="result pass">${b.reason}</div>` : `<div class="result fail">${b.reason || 'Failed'}</div>`;
+});
+</script>
+</main></body></html>

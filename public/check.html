@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Presence check</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Presence check</h1>
+<p class="sub">Two ways through, pick either. Both work with a finger, a mouse or a keyboard.</p>
+<div class="card">
+  <h2 style="margin-top:0">1. Follow the ring</h2>
+  <p class="note" style="margin:0 0 12px">Keep your pointer (or finger) on the moving ring for 7 seconds. We judge the shape of your movement, not speed.</p>
+  <canvas id="field" width="800" height="420" aria-label="Moving ring to follow"></canvas>
+  <p style="margin-top:12px"><button id="startRing">Start ring check</button></p>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">2. Tap the beat</h2>
+  <p class="note" style="margin:0 0 12px">Twelve pulses. Tap along with each flash. Keyboard: press Space. No timing pressure, just tap with the pulse.</p>
+  <div id="tapzone" tabindex="0" role="button" aria-label="Tap zone. Press space with each pulse.">Press start, then tap with the pulse</div>
+  <p style="margin-top:12px"><button id="startBeat">Start beat check</button></p>
+</div>
+<div id="out"></div>
+<p class="note"><a style="color:var(--accent)" href="/">Back</a> &middot; Prefer voice? <a style="color:var(--accent)" href="/voice.html">Voice path</a></p>
+<script src="/check.js"></script>
+</main></body></html>

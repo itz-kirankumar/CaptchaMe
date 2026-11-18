@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent lane</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Agent lane</h1>
+<p class="sub">An honest AI agent should not have to fake being a person. It declares itself with a signed key (the shape of the Web Bot Auth standard), skips the human checks, and gets its own fair-share budget.</p>
+<div class="card">
+  <h2 style="margin-top:0">Demo agent, in your browser</h2>
+  <p class="note" style="margin:0 0 12px">This generates a fresh Ed25519 key, signs the server nonce, declares itself, then calls the protected API until its budget runs out.</p>
+  <p><button id="run">Run the demo agent</button></p>
+  <div class="feed" id="log" style="margin-top:10px"></div>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">For your own agent</h2>
+  <p class="note" style="margin:0">POST /api/agent/nonce, sign the nonce with your Ed25519 key, POST /api/agent/declare with {pubkey, signature, nonce, operator}. Use the returned token as a Bearer token on the protected API. OpenClaw, LangGraph, a cron script: anything with a key can use the lane.</p>
+</div>
+<p class="note"><a style="color:var(--accent)" href="/">Back</a></p>
+<script src="/agent.js"></script>
+</main></body></html>

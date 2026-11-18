@@ -1,0 +1,76 @@
+'use strict';
+// Synthetic actors for tests and the live attack demo.
+// Human generators add the mess real people have; bot generators don't.
+
+function gauss(rng) { return (rng() + rng() + rng() + rng() - 2) * 0.5; }
+function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function targetAt(P, tms) {
+  const t = tms / 1000;
+  return {
+    x: 0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + P.px),
+    y: 0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + P.py),
+  };
+}
+
+// A person: reaction lag ~180ms, wanders, constantly corrects.
+function humanRing(P, seed = 1) {
+  const rng = mulberry(seed);
+  const lag = 140 + rng() * 120;
+  const samples = [];
+  let wx = 0, wy = 0; // slow wander
+  for (let t = 0; t < P.durationMs; t += 16 + rng() * 6) {
+    wx = wx * 0.95 + gauss(rng) * 0.004;
+    wy = wy * 0.95 + gauss(rng) * 0.004;
+    const g = targetAt(P, t - lag);
+    samples.push({ t: Math.round(t), x: +(g.x + wx + gauss(rng) * 0.01).toFixed(4), y: +(g.y + wy + gauss(rng) * 0.01).toFixed(4) });
+  }
+  return samples;
+}
+
+// A script: it read the path from the challenge response and follows it perfectly.
+function scriptRing(P) {
+  const samples = [];
+  for (let t = 0; t < P.durationMs; t += 16) {
+    const g = targetAt(P, t);
+    samples.push({ t, x: +g.x.toFixed(4), y: +g.y.toFixed(4) });
+  }
+  return samples;
+}
+
+// A look-think-act agent: re-aims every ~1.8s, glides straight between aims, a second behind.
+function agentRing(P) {
+  const samples = [];
+  const step = 1800;
+  let aim = targetAt(P, 0), prev = aim;
+  for (let t = 0; t < P.durationMs; t += 100) {
+    if (t % step === 0) { prev = aim; aim = targetAt(P, t); }
+    const k = (t % step) / step;
+    samples.push({ t, x: +(prev.x + (aim.x - prev.x) * k).toFixed(4), y: +(prev.y + (aim.y - prev.y) * k).toFixed(4) });
+  }
+  return samples;
+}
+
+function humanBeat(beats, seed = 2) {
+  const rng = mulberry(seed);
+  return beats.map(b => Math.round(b - 60 + gauss(rng) * 70));
+}
+function scriptBeat(beats) { return beats.slice(); }
+
+function humanVoice(words, seed = 3) {
+  const rng = mulberry(seed);
+  let t = 0;
+  const wordTimings = words.map((w, i) => {
+    const promptStartMs = t;
+    t += 1400 + i * 320;
+    return { word: w, promptStartMs, onsetMs: Math.round(promptStartMs + 550 + rng() * 700) };
+  });
+  return { wordTimings, transcript: words.join(' ') };
+}
+function botVoice(words) {
+  let t = 0;
+  const wordTimings = words.map((w, i) => { const promptStartMs = t; t += 1600; return { word: w, promptStartMs, onsetMs: promptStartMs + 500 }; });
+  return { wordTimings, transcript: words.join(' ') };
+}
+
+module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice };

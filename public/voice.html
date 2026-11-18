@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice presence</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Voice presence</h1>
+<p class="sub">The accessible path through the door: no pointer, no timed visual test. Four words appear and are spoken, one at a time. Say each word back when you hear it. We check that a live voice answers, and what it says.</p>
+<div class="card">
+  <div class="word" id="wordBox">Press start when ready</div>
+  <div class="meter"><i id="prog" style="width:0%"></i></div>
+  <p><button id="start">Start voice check</button>
+  <button class="ghost" id="perm">Allow microphone</button></p>
+  <p class="note" id="status">Needs a microphone and, for word matching, Chrome or Edge (their built-in speech recognition). Timing is measured from your mic directly, so it works even where speech recognition does not.</p>
+</div>
+<div id="out"></div>
+<p class="note">Honest note: a voice check raises the cost for AI voice agents. It does not by itself prove a human, so it always sits beside the fair-share cap. <a style="color:var(--accent)" href="/">Back</a></p>
+<script src="/voice.js"></script>
+</main></body></html>
