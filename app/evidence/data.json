@@ -1,0 +1,383 @@
+{
+  "generatedAt": "2026-11-18T11:59:26.368Z",
+  "typing": {
+    "dataset": {
+      "name": "CMU Keystroke Dynamics Benchmark (Killourhy & Maxion 2009)",
+      "size": "20,400 samples, 51 typists x 400 repetitions of one password",
+      "status": "run",
+      "used": 20400
+    },
+    "humansPass": {
+      "p": 0.9950490196078431,
+      "lo": 0.9939882205474676,
+      "hi": 0.995923404722158,
+      "n": 20400,
+      "k": 20299
+    },
+    "falseAlarm": {
+      "p": 0.004950980392156862,
+      "lo": 0.004076595277841973,
+      "hi": 0.00601177945253233,
+      "n": 20400,
+      "k": 101
+    },
+    "falseAlarmByPerson": {
+      "p": 0.004950980392156862,
+      "lo": 0.0003431372549019608,
+      "hi": 0.012058823529411764,
+      "n": 20400,
+      "k": 101,
+      "people": 51
+    },
+    "worstTypists": [
+      {
+        "notPassed": 0.1175,
+        "n": 400
+      },
+      {
+        "notPassed": 0.105,
+        "n": 400
+      }
+    ],
+    "adversaries": {
+      "fixed timing (script)": {
+        "n": 2000,
+        "denied": {
+          "p": 1,
+          "lo": 0.9980828823994873,
+          "hi": 1,
+          "n": 2000,
+          "k": 2000
+        }
+      },
+      "uniform random jitter": {
+        "n": 2000,
+        "denied": {
+          "p": 0,
+          "lo": 0,
+          "hi": 0.0019171176005129348,
+          "n": 2000,
+          "k": 0
+        }
+      },
+      "instant fill, no keystrokes": {
+        "n": 2000,
+        "denied": {
+          "p": 1,
+          "lo": 0.9980828823994873,
+          "hi": 1,
+          "n": 2000,
+          "k": 2000
+        }
+      },
+      "form submitted by page script": {
+        "n": 2000,
+        "denied": {
+          "p": 1,
+          "lo": 0.9980828823994873,
+          "hi": 1,
+          "n": 2000,
+          "k": 2000
+        }
+      },
+      "headless browser (webdriver flag)": {
+        "n": 2000,
+        "denied": {
+          "p": 1,
+          "lo": 0.9980828823994873,
+          "hi": 1,
+          "n": 2000,
+          "k": 2000
+        }
+      },
+      "fitted to human averages (adaptive)": {
+        "n": 2000,
+        "denied": {
+          "p": 0,
+          "lo": 0,
+          "hi": 0.0019171176005129348,
+          "n": 2000,
+          "k": 0
+        }
+      },
+      "replay of a real human sample (adaptive)": {
+        "n": 2000,
+        "denied": {
+          "p": 0.0065,
+          "lo": 0.0038025598686868152,
+          "hi": 0.01108963520301945,
+          "n": 2000,
+          "k": 13
+        }
+      }
+    },
+    "notes": [
+      "The adversaries are synthetic. They bound the rules; they are not evidence about real attackers.",
+      "One practised password, typed 400 times by each of 51 people."
+    ]
+  },
+  "pointer": {
+    "dataset": {
+      "name": "mouse-sessions",
+      "used": 3616,
+      "humans": 1020
+    },
+    "humansPass": {
+      "p": 0.9931372549019608,
+      "lo": 0.9859020495902678,
+      "hi": 0.9966718173047676,
+      "n": 1020,
+      "k": 1013
+    },
+    "phone": {
+      "notPassed": 0.061224489795918366,
+      "lo": 0.028358937185437583,
+      "hi": 0.1271924288575154,
+      "n": 98
+    },
+    "bots": {
+      "bot_gan": {
+        "n": 1899,
+        "gotThrough": {
+          "p": 1,
+          "lo": 0.9979811246506279,
+          "hi": 1,
+          "n": 1899,
+          "k": 1899
+        }
+      },
+      "bot_naturalmousemotion": {
+        "n": 234,
+        "gotThrough": {
+          "p": 1,
+          "lo": 0.9838480736759255,
+          "hi": 1,
+          "n": 234,
+          "k": 234
+        }
+      },
+      "bot_pyhm": {
+        "n": 55,
+        "gotThrough": {
+          "p": 1,
+          "lo": 0.9347128562105721,
+          "hi": 0.9999999999999999,
+          "n": 55,
+          "k": 55
+        }
+      },
+      "bot_pynput": {
+        "n": 408,
+        "gotThrough": {
+          "p": 0.9803921568627451,
+          "lo": 0.9617904843592918,
+          "hi": 0.9900317696335054,
+          "n": 408,
+          "k": 400
+        }
+      }
+    },
+    "notes": [
+      "Humans and bots were recorded on different machines and screen sizes; check shortcutRisk before trusting any AUC. A feature that separates only because of the sample clock tells you about the recorder, not the visitor.",
+      "Balabit sessions are remote-desktop work, not a web task, so its pointer timing includes network jitter; it is used for the human-side rates only."
+    ]
+  },
+  "clash": {
+    "dataset": {
+      "name": "Stroop trial data",
+      "used": 32292,
+      "people": 81
+    },
+    "humansPass": {
+      "p": 0.983127572016461,
+      "lo": 0.9771916256388332,
+      "hi": 0.9875383715803779,
+      "n": 2430,
+      "k": 2389
+    },
+    "failByPerson": {
+      "p": 0.016872427983539096,
+      "lo": 0.009465020576131687,
+      "hi": 0.02551440329218107,
+      "n": 2430,
+      "k": 41,
+      "people": 81
+    },
+    "rtMs": {
+      "p05": 422,
+      "median": 660,
+      "p95": 1234,
+      "p99": 1474
+    },
+    "pastWindow": {
+      "p": 0.03514802427845906,
+      "lo": 0.033194095777343266,
+      "hi": 0.03721254134215511,
+      "n": 32292,
+      "k": 1135
+    },
+    "windowMs": 1300,
+    "windowSweep": null,
+    "notes": [
+      "Reaction times here come from a keyboard task; the product asks for a click or tap, which adds pointing time. Treat the window result as a LOWER bound on human lateness.",
+      "The Stroop task in this dataset has more than two colours; an error is mapped to \"chose the word\" for the two-colour product, which can only make humans look worse, never better."
+    ]
+  },
+  "identity": {
+    "dataset": {
+      "name": "user-agents",
+      "kept": 2302,
+      "total": 2360
+    },
+    "categories": {
+      "agent": {
+        "n": 42,
+        "flagged": {
+          "p": 0.9047619047619048,
+          "lo": 0.7793460477494668,
+          "hi": 0.9623383611716879,
+          "n": 42,
+          "k": 38
+        },
+        "shieldAlone": {
+          "p": 0.16666666666666666,
+          "lo": 0.08315811295836502,
+          "hi": 0.30604296204774295,
+          "n": 42,
+          "k": 7
+        }
+      },
+      "ai-crawler": {
+        "n": 46,
+        "flagged": {
+          "p": 0.9565217391304348,
+          "lo": 0.8546747708094659,
+          "hi": 0.9879948064111691,
+          "n": 46,
+          "k": 44
+        },
+        "shieldAlone": {
+          "p": 0.7608695652173914,
+          "lo": 0.6206458383088198,
+          "hi": 0.860879634388686,
+          "n": 46,
+          "k": 35
+        }
+      },
+      "crawler": {
+        "n": 2087,
+        "flagged": {
+          "p": 0.9439386679444178,
+          "lo": 0.9332288163044721,
+          "hi": 0.9530171814793867,
+          "n": 2087,
+          "k": 1970
+        },
+        "shieldAlone": {
+          "p": 0.5586966938188788,
+          "lo": 0.5373046285371956,
+          "hi": 0.5798730667985008,
+          "n": 2087,
+          "k": 1166
+        }
+      },
+      "bot": {
+        "n": 27,
+        "flagged": {
+          "p": 0.7777777777777778,
+          "lo": 0.5924270453692919,
+          "hi": 0.8939290451059105,
+          "n": 27,
+          "k": 21
+        },
+        "shieldAlone": {
+          "p": 0.4444444444444444,
+          "lo": 0.2758559767007283,
+          "hi": 0.6268728052042312,
+          "n": 27,
+          "k": 12
+        }
+      },
+      "human": {
+        "n": 100,
+        "flagged": {
+          "p": 0,
+          "lo": 0,
+          "hi": 0.03699480747600191,
+          "n": 100,
+          "k": 0
+        },
+        "shieldAlone": {
+          "p": 0,
+          "lo": 0,
+          "hi": 0.03699480747600191,
+          "n": 100,
+          "k": 0
+        }
+      }
+    },
+    "notes": [
+      "A UA string is a claim, not evidence. This measures only how well CaptchaMe recognises what a client SAYS it is. A bot that says \"Chrome\" is invisible here.",
+      "Agents that run in a person's own Chrome (Atlas, Comet, Claude in Chrome) are indistinguishable from that person at the HTTP level (stated by mintlify/agent-traffic itself)."
+    ]
+  },
+  "limits": [
+    "GitHub-hosted data only. Eight datasets that matter most are blocked-here; their entries list what to allow.",
+    "Humans and bots in delbot were recorded on different machines. AUCs there carry a shortcut risk; the harness prints it.",
+    "Adversaries in the typing test are synthetic and mine; they bound the rules, they are not evidence about real attackers.",
+    "CMU is one practised password and the Stroop data is keyboard-based. Both are favourable to the rules.",
+    "Nothing here tests ring, pulse, reflex, targets, beat or voice on people. Their thresholds are still unvalidated."
+  ],
+  "missing": [
+    {
+      "name": "Aalto 136M Keystrokes",
+      "status": "blocked-here",
+      "uses": "the large free-text human set needed to test any new typing rule; the GitHub repo aalto-ui/136m-keystrokes holds only the collection app"
+    },
+    {
+      "name": "BeCAPTCHA-Mouse benchmark (Acien et al. 2022)",
+      "status": "gated",
+      "uses": "the standard published bot-mouse benchmark. Apply for it"
+    },
+    {
+      "name": "Web Bot Detection Dataset (ITI / Bournemouth, Iliou et al. 2021)",
+      "status": "blocked-here",
+      "uses": "the only public set that pairs logs with mouse for humanlike bots. Top priority to obtain"
+    },
+    {
+      "name": "CaptchaSolve30k (Capycap-AI)",
+      "status": "blocked-here",
+      "uses": "largest human ground truth for movement shape, tracking and drag tasks, with a touch flag. Closest public analogue to the ring and targets tasks"
+    },
+    {
+      "name": "ASVspoof 2019 / 2021 / 5",
+      "status": "blocked-here",
+      "uses": "voice-clone and TTS artifacts. It has no prompt-and-answer timing, so it cannot test our onset-timing rule"
+    },
+    {
+      "name": "Web robot detection - Server logs (Zenodo 3477932)",
+      "status": "blocked-here",
+      "uses": "labelled bot vs human logs, if labels are present"
+    },
+    {
+      "name": "Web Server Access Logs (eliasdabbas), Zanbil e-commerce 3.3 GB",
+      "status": "blocked-here",
+      "uses": "scale test for the audit; audit.js loads the file into memory"
+    },
+    {
+      "name": "szili2011/captcha-ocr-dataset",
+      "status": "blocked-here",
+      "uses": "training a text-captcha attacker for the arena"
+    },
+    {
+      "name": "DannyLuna/recaptcha-classification-57k",
+      "status": "blocked-here",
+      "uses": "attack baseline"
+    },
+    {
+      "name": "yujunjiex/behavior_captcha_cracker (GeeTest, Yidun, Yunpian)",
+      "status": "gated",
+      "uses": "evidence that vendor slider and click captchas are broken by public models"
+    }
+  ]
+}

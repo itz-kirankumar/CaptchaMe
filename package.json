@@ -13,7 +13,8 @@
     "test:layer2": "node test/layer2.js",
     "validate": "node validation/run.js",
     "validate:fetch": "bash validation/fetch.sh",
-    "test:validation": "node validation/test-stats.js"
+    "test:validation": "node validation/test-stats.js",
+    "prebuild": "node scripts/build-metrics.js"
   },
   "license": "MIT",
   "engines": {

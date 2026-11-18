@@ -8,3 +8,4 @@ data.json
 # validation datasets (fetched at run time, never committed or redistributed)
 validation/data/
 validation/out/
+!app/evidence/data.json
