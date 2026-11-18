@@ -76,6 +76,12 @@ Set `ABUSEGUARD_URL`, `ABUSEGUARD_KEY` and `ABUSEGUARD_SALT` to turn it on; it s
 fails open, and with the variables unset nothing changes. Status and the shadow comparison:
 `GET /api/admin/abuseguard`. Test: `npm run test:abuseguard`. Full guide: [docs/ABUSEGUARD.md](docs/ABUSEGUARD.md).
 
+## Validation on public data
+
+`npm run validate:fetch && npm run validate` audits and runs the checks against real public datasets
+(typing, pointer, client identity, Stroop) with person-level confidence intervals. What exists, what it can and cannot
+prove, and the measured gaps are in [docs/DATASETS.md](docs/DATASETS.md) and [docs/VALIDATION-PLAN.md](docs/VALIDATION-PLAN.md).
+
 ## Vercel
 
 The repo deploys to Vercel as-is: `api/[...all].js` handles every `/api/*`
