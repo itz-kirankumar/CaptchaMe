@@ -9,7 +9,10 @@
     "start": "next start",
     "legacy": "node server.js",
     "test": "node test/e2e.js && node test/abuseguard.js",
-    "test:abuseguard": "node test/abuseguard.js"
+    "test:abuseguard": "node test/abuseguard.js",
+    "validate": "node validation/run.js",
+    "validate:fetch": "bash validation/fetch.sh",
+    "test:validation": "node validation/test-stats.js"
   },
   "license": "MIT",
   "engines": {

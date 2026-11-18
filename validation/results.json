@@ -1,0 +1,1122 @@
+{
+  "generatedAt": "2026-11-18T11:59:26.368Z",
+  "dataDir": "ds",
+  "experiments": {
+    "keystrokes": {
+      "quality": {
+        "name": "cmu-keystroke",
+        "total": 20400,
+        "kept": 20400,
+        "dropped": 0,
+        "byLabel": {
+          "human": 20400
+        },
+        "bySource": {
+          "cmu": 20400
+        },
+        "duplicateRate": 0,
+        "minorityShare": 1,
+        "problems": {},
+        "verdict": "OK"
+      },
+      "humans": {
+        "n": 20400,
+        "pass": {
+          "p": 0.9950490196078431,
+          "lo": 0.9939882205474676,
+          "hi": 0.995923404722158,
+          "n": 20400,
+          "k": 20299
+        },
+        "nudge": {
+          "p": 0,
+          "lo": 0,
+          "hi": 0.00018827827010772325,
+          "n": 20400,
+          "k": 0
+        },
+        "challenge": {
+          "p": 0.004950980392156862,
+          "lo": 0.004076595277841973,
+          "hi": 0.00601177945253233,
+          "n": 20400,
+          "k": 101
+        },
+        "challengeByPerson": {
+          "p": 0.004950980392156862,
+          "lo": 0.0003431372549019608,
+          "hi": 0.012058823529411764,
+          "people": 51,
+          "n": 20400,
+          "k": 101
+        },
+        "reasons": {
+          "every key was held for the same time (sd # ms)": 101
+        },
+        "worstSubjects": [
+          {
+            "subject": "s036",
+            "notPassed": 0.1175,
+            "n": 400
+          },
+          {
+            "subject": "s028",
+            "notPassed": 0.105,
+            "n": 400
+          },
+          {
+            "subject": "s026",
+            "notPassed": 0.0125,
+            "n": 400
+          },
+          {
+            "subject": "s017",
+            "notPassed": 0.005,
+            "n": 400
+          },
+          {
+            "subject": "s025",
+            "notPassed": 0.005,
+            "n": 400
+          }
+        ],
+        "passWith22Keys": {
+          "p": 1,
+          "lo": 0.9980828823994873,
+          "hi": 1,
+          "n": 2000,
+          "k": 2000
+        }
+      },
+      "adversaries": {
+        "fixed timing (script)": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          },
+          "sentToFullCheck": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          }
+        },
+        "uniform random jitter": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.0019171176005129348,
+            "n": 2000,
+            "k": 0
+          },
+          "sentToFullCheck": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.0019171176005129348,
+            "n": 2000,
+            "k": 0
+          }
+        },
+        "instant fill, no keystrokes": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          },
+          "sentToFullCheck": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          }
+        },
+        "form submitted by page script": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          },
+          "sentToFullCheck": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          }
+        },
+        "headless browser (webdriver flag)": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          },
+          "sentToFullCheck": {
+            "p": 1,
+            "lo": 0.9980828823994873,
+            "hi": 1,
+            "n": 2000,
+            "k": 2000
+          }
+        },
+        "fitted to human averages (adaptive)": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.0019171176005129348,
+            "n": 2000,
+            "k": 0
+          },
+          "sentToFullCheck": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.0019171176005129348,
+            "n": 2000,
+            "k": 0
+          }
+        },
+        "replay of a real human sample (adaptive)": {
+          "n": 2000,
+          "deniedInvisiblePass": {
+            "p": 0.0065,
+            "lo": 0.0038025598686868152,
+            "hi": 0.01108963520301945,
+            "n": 2000,
+            "k": 13
+          },
+          "sentToFullCheck": {
+            "p": 0.0065,
+            "lo": 0.0038025598686868152,
+            "hi": 0.01108963520301945,
+            "n": 2000,
+            "k": 13
+          }
+        }
+      },
+      "notes": [
+        "Replay and \"fitted to human averages\" pass by design: a rule that reads timing shape cannot tell a copy of a human from a human. That is why the fair-share ledger exists, and why this layer must never be reported as stopping them.",
+        "CMU is one 11-key password typed 400 times per person (practised, so unusually regular). Page time is assumed 6000 ms."
+      ]
+    },
+    "mouse": {
+      "quality": {
+        "name": "mouse-sessions",
+        "total": 3616,
+        "kept": 3616,
+        "dropped": 0,
+        "byLabel": {
+          "bot": 2596,
+          "human": 1020
+        },
+        "bySource": {
+          "bot_gan": 1899,
+          "bot_naturalmousemotion": 234,
+          "bot_pyhm": 55,
+          "bot_pynput": 408,
+          "human_fast": 9,
+          "human_pc1": 187,
+          "human_pc2": 459,
+          "human_pc2_pad": 62,
+          "human_tel": 98,
+          "human_vm": 140,
+          "balabit": 65
+        },
+        "duplicateRate": 0,
+        "minorityShare": 0.28207964601769914,
+        "problems": {
+          "short session (<25 samples), kept: <25 samples": {
+            "count": 68,
+            "examples": [
+              "circles_bot_pyhm/circleHide_1665737147992.txt",
+              "circles_bot_pynput/circleHide_1663857155821.txt",
+              "circles_bot_pynput/circleHide_1663857157784.txt"
+            ]
+          }
+        },
+        "verdict": "OK"
+      },
+      "shortcutRisk": {
+        "resolutionByClass": {
+          "bot": {
+            "1536x864": 2528,
+            "1920x1080": 68
+          },
+          "human": {
+            "1536x864": 502,
+            "1536x754": 143,
+            "1920x1080": 212,
+            "412x732": 98
+          }
+        },
+        "resolutionsOnlyInOneClass": 2,
+        "sampleClockBySource": {
+          "bot_gan": 14,
+          "bot_naturalmousemotion": 16,
+          "bot_pyhm": 16.7,
+          "bot_pynput": 33,
+          "human_fast": 49,
+          "human_pc1": 16,
+          "human_pc2": 16,
+          "human_pc2_pad": 14.9,
+          "human_tel": 17,
+          "human_vm": 51,
+          "balabit": 110
+        }
+      },
+      "passive": {
+        "humans": {
+          "n": 1020,
+          "invisiblePass": {
+            "p": 0.9931372549019608,
+            "lo": 0.9859020495902678,
+            "hi": 0.9966718173047676,
+            "n": 1020,
+            "k": 1013
+          },
+          "buttonCheck": {
+            "p": 0.006862745098039216,
+            "lo": 0.0033281826952324366,
+            "hi": 0.014097950409732236,
+            "n": 1020,
+            "k": 7
+          },
+          "fullCheck": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.0037521429096063295,
+            "n": 1020,
+            "k": 0
+          }
+        },
+        "humansBySource": [
+          {
+            "source": "human_tel",
+            "notInvisiblePass": 0.061224489795918366,
+            "ci": [
+              0.028358937185437583,
+              0.1271924288575154
+            ],
+            "n": 98
+          },
+          {
+            "source": "human_pc2",
+            "notInvisiblePass": 0.002178649237472767,
+            "ci": [
+              0.0003846787692768725,
+              0.012236485793286218
+            ],
+            "n": 459
+          },
+          {
+            "source": "human_fast",
+            "notInvisiblePass": 0,
+            "ci": [
+              0,
+              0.2991527535509594
+            ],
+            "n": 9
+          },
+          {
+            "source": "human_pc1",
+            "notInvisiblePass": 0,
+            "ci": [
+              0,
+              0.020129783024246284
+            ],
+            "n": 187
+          },
+          {
+            "source": "human_pc2_pad",
+            "notInvisiblePass": 0,
+            "ci": [
+              0,
+              0.05834609122500061
+            ],
+            "n": 62
+          },
+          {
+            "source": "human_vm",
+            "notInvisiblePass": 0,
+            "ci": [
+              0,
+              0.02670715564899167
+            ],
+            "n": 140
+          },
+          {
+            "source": "balabit",
+            "notInvisiblePass": 0,
+            "ci": [
+              0,
+              0.055803467670710726
+            ],
+            "n": 65
+          }
+        ],
+        "botsBySource": {
+          "bot_gan": {
+            "n": 1899,
+            "slippedThroughAsInvisiblePass": {
+              "p": 1,
+              "lo": 0.9979811246506279,
+              "hi": 1,
+              "n": 1899,
+              "k": 1899
+            },
+            "gotButtonCheckOrWorse": {
+              "p": 0,
+              "lo": 0,
+              "hi": 0.0020188753493722233,
+              "n": 1899,
+              "k": 0
+            }
+          },
+          "bot_naturalmousemotion": {
+            "n": 234,
+            "slippedThroughAsInvisiblePass": {
+              "p": 1,
+              "lo": 0.9838480736759255,
+              "hi": 1,
+              "n": 234,
+              "k": 234
+            },
+            "gotButtonCheckOrWorse": {
+              "p": 0,
+              "lo": 0,
+              "hi": 0.01615192632407451,
+              "n": 234,
+              "k": 0
+            }
+          },
+          "bot_pyhm": {
+            "n": 55,
+            "slippedThroughAsInvisiblePass": {
+              "p": 1,
+              "lo": 0.9347128562105721,
+              "hi": 0.9999999999999999,
+              "n": 55,
+              "k": 55
+            },
+            "gotButtonCheckOrWorse": {
+              "p": 0,
+              "lo": 0,
+              "hi": 0.06528714378942788,
+              "n": 55,
+              "k": 0
+            }
+          },
+          "bot_pynput": {
+            "n": 408,
+            "slippedThroughAsInvisiblePass": {
+              "p": 0.9803921568627451,
+              "lo": 0.9617904843592918,
+              "hi": 0.9900317696335054,
+              "n": 408,
+              "k": 400
+            },
+            "gotButtonCheckOrWorse": {
+              "p": 0.0196078431372549,
+              "lo": 0.009968230366494628,
+              "hi": 0.03820951564070814,
+              "n": 408,
+              "k": 8
+            }
+          }
+        }
+      },
+      "features": {
+        "peak/mean speed (used by passive.js)": {
+          "bot_gan": {
+            "auc": 0.81,
+            "ci": [
+              0.787,
+              0.83
+            ],
+            "botsAre": "HIGHER",
+            "nBots": 1899,
+            "nHumans": 955
+          },
+          "bot_naturalmousemotion": {
+            "auc": 0.819,
+            "ci": [
+              0.795,
+              0.845
+            ],
+            "botsAre": "HIGHER",
+            "nBots": 234,
+            "nHumans": 955
+          },
+          "bot_pyhm": {
+            "auc": 0.674,
+            "ci": [
+              0.592,
+              0.753
+            ],
+            "botsAre": "LOWER",
+            "nBots": 55,
+            "nHumans": 955
+          },
+          "bot_pynput": {
+            "auc": 0.505,
+            "ci": [
+              0.467,
+              0.544
+            ],
+            "botsAre": "LOWER",
+            "nBots": 408,
+            "nHumans": 955
+          }
+        },
+        "sample-interval CV (used by scoring.js)": {
+          "bot_gan": {
+            "auc": 0.582,
+            "ci": [
+              0.55,
+              0.611
+            ],
+            "botsAre": "LOWER",
+            "nBots": 1899,
+            "nHumans": 951
+          },
+          "bot_naturalmousemotion": {
+            "auc": 0.904,
+            "ci": [
+              0.889,
+              0.918
+            ],
+            "botsAre": "HIGHER",
+            "nBots": 234,
+            "nHumans": 951
+          },
+          "bot_pyhm": {
+            "auc": 0.6,
+            "ci": [
+              0.566,
+              0.642
+            ],
+            "botsAre": "HIGHER",
+            "nBots": 55,
+            "nHumans": 951
+          },
+          "bot_pynput": {
+            "auc": 0.635,
+            "ci": [
+              0.607,
+              0.674
+            ],
+            "botsAre": "LOWER",
+            "nBots": 349,
+            "nHumans": 951
+          }
+        },
+        "event rate Hz (arXiv 2607.26935; NOT used)": {
+          "bot_gan": {
+            "auc": 0.955,
+            "ci": [
+              0.943,
+              0.968
+            ],
+            "botsAre": "HIGHER",
+            "nBots": 685,
+            "nHumans": 927
+          },
+          "bot_naturalmousemotion": {
+            "auc": 0.802,
+            "ci": [
+              0.775,
+              0.824
+            ],
+            "botsAre": "LOWER",
+            "nBots": 234,
+            "nHumans": 927
+          },
+          "bot_pyhm": {
+            "auc": 0.557,
+            "ci": [
+              0.523,
+              0.592
+            ],
+            "botsAre": "LOWER",
+            "nBots": 54,
+            "nHumans": 927
+          },
+          "bot_pynput": {
+            "auc": 0.745,
+            "ci": [
+              0.71,
+              0.781
+            ],
+            "botsAre": "LOWER",
+            "nBots": 352,
+            "nHumans": 927
+          }
+        },
+        "teleport-click ratio (arXiv 2607.26935; NOT used)": {
+          "bot_gan": {
+            "note": "constant on this data (each recording starts at the click, so there is no approach to measure)"
+          },
+          "bot_naturalmousemotion": {
+            "note": "constant on this data (each recording starts at the click, so there is no approach to measure)"
+          },
+          "bot_pyhm": {
+            "note": "constant on this data (each recording starts at the click, so there is no approach to measure)"
+          },
+          "bot_pynput": {
+            "note": "constant on this data (each recording starts at the click, so there is no approach to measure)"
+          }
+        },
+        "path straightness (NOT used)": {
+          "bot_gan": {
+            "note": "too few usable sessions",
+            "bots": 0,
+            "humans": 0
+          },
+          "bot_naturalmousemotion": {
+            "note": "too few usable sessions",
+            "bots": 0,
+            "humans": 0
+          },
+          "bot_pyhm": {
+            "note": "too few usable sessions",
+            "bots": 0,
+            "humans": 0
+          },
+          "bot_pynput": {
+            "note": "too few usable sessions",
+            "bots": 0,
+            "humans": 0
+          }
+        }
+      },
+      "notes": [
+        "Humans and bots were recorded on different machines and screen sizes; check shortcutRisk before trusting any AUC. A feature that separates only because of the sample clock tells you about the recorder, not the visitor.",
+        "Balabit sessions are remote-desktop work, not a web task, so its pointer timing includes network jitter; it is used for the human-side rates only."
+      ],
+      "ratioVsRule": {
+        "human": {
+          "n": 955,
+          "median": 2.35,
+          "shareBelow1_2": 0,
+          "shareAtLeast1_4": 0.993
+        },
+        "bot_gan": {
+          "n": 1899,
+          "median": 5.51,
+          "shareBelow1_2": 0,
+          "shareAtLeast1_4": 1
+        },
+        "bot_naturalmousemotion": {
+          "n": 234,
+          "median": 6.05,
+          "shareBelow1_2": 0,
+          "shareAtLeast1_4": 1
+        },
+        "bot_pyhm": {
+          "n": 55,
+          "median": 1.92,
+          "shareBelow1_2": 0,
+          "shareAtLeast1_4": 1
+        },
+        "bot_pynput": {
+          "n": 408,
+          "median": 2.33,
+          "shareBelow1_2": 0.002,
+          "shareAtLeast1_4": 0.98
+        }
+      }
+    },
+    "agents": {
+      "quality": {
+        "name": "user-agents",
+        "total": 2360,
+        "kept": 2302,
+        "dropped": 58,
+        "byLabel": {
+          "agent": 42,
+          "ai-crawler": 46,
+          "crawler": 2145,
+          "bot": 27,
+          "human": 100
+        },
+        "bySource": {
+          "mintlify/coding": 18,
+          "mintlify/assistant": 22,
+          "mintlify/browser": 2,
+          "mintlify/training": 23,
+          "mintlify/ai-search": 13,
+          "mintlify/ingest": 10,
+          "mintlify/search": 20,
+          "mintlify/seo": 4,
+          "mintlify/preview": 8,
+          "mintlify/ads": 5,
+          "mintlify/monitor": 6,
+          "mintlify/scanner": 2,
+          "mintlify/archiver": 1,
+          "mintlify/feed": 1,
+          "monperrus": 2125,
+          "microlink": 100
+        },
+        "duplicateRate": 0.02457627118644068,
+        "minorityShare": 0.011440677966101695,
+        "problems": {
+          "a crawler list entry that is a full browser string: browser-shaped": {
+            "count": 37,
+            "examples": [
+              "mint#96",
+              "crawl#163",
+              "crawl#164"
+            ]
+          },
+          "exact duplicate of another record": {
+            "count": 58,
+            "examples": [
+              "crawl#144",
+              "crawl#156",
+              "crawl#162"
+            ]
+          },
+          "same content with two different labels": {
+            "count": 47,
+            "examples": [
+              "crawl#156",
+              "crawl#188",
+              "crawl#462"
+            ]
+          }
+        },
+        "verdict": "OK after dedupe"
+      },
+      "byCategory": {
+        "agent": {
+          "n": 42,
+          "shieldSlowsOrBlocks": {
+            "p": 0.16666666666666666,
+            "lo": 0.08315811295836502,
+            "hi": 0.30604296204774295,
+            "n": 42,
+            "k": 7
+          },
+          "auditCallsItAutomated": {
+            "p": 0.8809523809523809,
+            "lo": 0.7499931819289246,
+            "hi": 0.9480627323498091,
+            "n": 42,
+            "k": 37
+          },
+          "eitherFlags": {
+            "p": 0.9047619047619048,
+            "lo": 0.7793460477494668,
+            "hi": 0.9623383611716879,
+            "n": 42,
+            "k": 38
+          },
+          "calledAPerson": {
+            "p": 0.09523809523809523,
+            "lo": 0.0376616388283121,
+            "hi": 0.2206539522505333,
+            "n": 42,
+            "k": 4
+          },
+          "missedExamples": [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KH",
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Gemini-",
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Amzn-Us"
+          ]
+        },
+        "ai-crawler": {
+          "n": 46,
+          "shieldSlowsOrBlocks": {
+            "p": 0.7608695652173914,
+            "lo": 0.6206458383088198,
+            "hi": 0.860879634388686,
+            "n": 46,
+            "k": 35
+          },
+          "auditCallsItAutomated": {
+            "p": 0.9347826086956522,
+            "lo": 0.8249699089621865,
+            "hi": 0.9775725455336564,
+            "n": 46,
+            "k": 43
+          },
+          "eitherFlags": {
+            "p": 0.9565217391304348,
+            "lo": 0.8546747708094659,
+            "hi": 0.9879948064111691,
+            "n": 46,
+            "k": 44
+          },
+          "calledAPerson": {
+            "p": 0.043478260869565216,
+            "lo": 0.012005193588830829,
+            "hi": 0.1453252291905342,
+            "n": 46,
+            "k": 2
+          },
+          "missedExamples": [
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GoogleO",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:72.0) Gecko/20100101 Firefo"
+          ]
+        },
+        "crawler": {
+          "n": 2087,
+          "shieldSlowsOrBlocks": {
+            "p": 0.5586966938188788,
+            "lo": 0.5373046285371956,
+            "hi": 0.5798730667985008,
+            "n": 2087,
+            "k": 1166
+          },
+          "auditCallsItAutomated": {
+            "p": 0.8969813128893148,
+            "lo": 0.8832014980611025,
+            "hi": 0.9093023434541994,
+            "n": 2087,
+            "k": 1872
+          },
+          "eitherFlags": {
+            "p": 0.9439386679444178,
+            "lo": 0.9332288163044721,
+            "hi": 0.9530171814793867,
+            "n": 2087,
+            "k": 1970
+          },
+          "calledAPerson": {
+            "p": 0.056061332055582176,
+            "lo": 0.046982818520613256,
+            "hi": 0.06677118369552784,
+            "n": 2087,
+            "k": 117
+          },
+          "missedExamples": [
+            "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/",
+            "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.7.12; ips-agent) Gecko/20",
+            "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.1.3; ips-agent) Gecko/2",
+            "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.24; ips-agent) Gecko/"
+          ]
+        },
+        "bot": {
+          "n": 27,
+          "shieldSlowsOrBlocks": {
+            "p": 0.4444444444444444,
+            "lo": 0.2758559767007283,
+            "hi": 0.6268728052042312,
+            "n": 27,
+            "k": 12
+          },
+          "auditCallsItAutomated": {
+            "p": 0.7407407407407407,
+            "lo": 0.553210695973843,
+            "hi": 0.8682979157713322,
+            "n": 27,
+            "k": 20
+          },
+          "eitherFlags": {
+            "p": 0.7777777777777778,
+            "lo": 0.5924270453692919,
+            "hi": 0.8939290451059105,
+            "n": 27,
+            "k": 21
+          },
+          "calledAPerson": {
+            "p": 0.2222222222222222,
+            "lo": 0.10607095489408958,
+            "hi": 0.4075729546307081,
+            "n": 27,
+            "k": 6
+          },
+          "missedExamples": [
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko;",
+            "Mozilla/5.0 AppleWebKit/537.36 Chrome/139.0.7258.127 Safari/537.36 Goo",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko;",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KH"
+          ]
+        },
+        "human": {
+          "n": 100,
+          "shieldSlowsOrBlocks": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.03699480747600191,
+            "n": 100,
+            "k": 0
+          },
+          "auditCallsItAutomated": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.03699480747600191,
+            "n": 100,
+            "k": 0
+          },
+          "eitherFlags": {
+            "p": 0,
+            "lo": 0,
+            "hi": 0.03699480747600191,
+            "n": 100,
+            "k": 0
+          },
+          "calledAPerson": {
+            "p": 1,
+            "lo": 0.9630051925239981,
+            "hi": 0.9999999999999999,
+            "n": 100,
+            "k": 100
+          },
+          "missedExamples": [
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KH",
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gec",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, l",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KH"
+          ]
+        }
+      },
+      "notes": [
+        "A UA string is a claim, not evidence. This measures only how well CaptchaMe recognises what a client SAYS it is. A bot that says \"Chrome\" is invisible here.",
+        "Agents that run in a person's own Chrome (Atlas, Comet, Claude in Chrome) are indistinguishable from that person at the HTTP level (stated by mintlify/agent-traffic itself)."
+      ],
+      "agentKinds": {
+        "coding": {
+          "n": 18,
+          "missed": 1
+        },
+        "assistant": {
+          "n": 22,
+          "missed": 2
+        },
+        "browser": {
+          "n": 2,
+          "missed": 1
+        }
+      }
+    },
+    "stroop": {
+      "quality": {
+        "name": "stroop-trials",
+        "total": 48517,
+        "kept": 48517,
+        "dropped": 0,
+        "byLabel": {
+          "human": 48517
+        },
+        "bySource": {
+          "118340": 574,
+          "120554": 580,
+          "142272": 577,
+          "142610": 571,
+          "146393": 575,
+          "149318": 580,
+          "174411": 567,
+          "180705": 1153,
+          "190732": 579,
+          "194849": 579,
+          "197623": 565,
+          "204561": 579,
+          "217278": 569,
+          "245080": 576,
+          "247620": 581,
+          "268879": 575,
+          "274322": 575,
+          "282407": 576,
+          "283382": 567,
+          "288246": 578,
+          "300190": 560,
+          "301375": 571,
+          "305899": 560,
+          "311153": 574,
+          "316750": 574,
+          "317560": 574,
+          "318327": 540,
+          "342023": 580,
+          "342919": 577,
+          "352773": 575,
+          "354109": 554,
+          "360027": 574,
+          "367466": 572,
+          "372544": 574,
+          "375537": 1154,
+          "376613": 577,
+          "391652": 579,
+          "430453": 580,
+          "443829": 576,
+          "462795": 577,
+          "495135": 566,
+          "497562": 563,
+          "514721": 575,
+          "536211": 580,
+          "590116": 580,
+          "604153": 569,
+          "604995": 579,
+          "608204": 565,
+          "613451": 575,
+          "623074": 577,
+          "639598": 1134,
+          "648597": 551,
+          "658554": 565,
+          "668918": 572,
+          "684397": 564,
+          "713272": 568,
+          "718774": 579,
+          "725297": 1153,
+          "726851": 552,
+          "733206": 572,
+          "737218": 537,
+          "753332": 580,
+          "766339": 579,
+          "774293": 573,
+          "799330": 579,
+          "816471": 570,
+          "819650": 569,
+          "847738": 523,
+          "862128": 560,
+          "862659": 574,
+          "868858": 567,
+          "879281": 580,
+          "901381": 546,
+          "901393": 578,
+          "933604": 575,
+          "935666": 536,
+          "936750": 578,
+          "954987": 578,
+          "959728": 578,
+          "981502": 562,
+          "990512": 578
+        },
+        "duplicateRate": 0,
+        "minorityShare": 1,
+        "problems": {
+          "neutral trial (not used by the product): neutral": {
+            "count": 16225,
+            "examples": [
+              "trial#2",
+              "trial#4",
+              "trial#12"
+            ]
+          },
+          "anticipation (<150 ms): RT < 150 ms": {
+            "count": 10,
+            "examples": [
+              "trial#9728",
+              "trial#13720",
+              "trial#13793"
+            ]
+          }
+        },
+        "verdict": "OK"
+      },
+      "trialLevel": {
+        "n": 32292,
+        "participants": 81,
+        "rtMs": {
+          "p05": 422,
+          "median": 660,
+          "p95": 1234,
+          "p99": 1474
+        },
+        "slowerThanWindow": {
+          "p": 0.03514802427845906,
+          "lo": 0.033194095777343266,
+          "hi": 0.03721254134215511,
+          "n": 32292,
+          "k": 1135
+        },
+        "fasterThan180": {
+          "p": 0.0002477393781741608,
+          "lo": 0.00012553935586257238,
+          "hi": 0.00048883076168222,
+          "n": 32292,
+          "k": 8
+        },
+        "accuracy": {
+          "p": 0.9445683141335315,
+          "lo": 0.9420192521553559,
+          "hi": 0.9470116130443296,
+          "n": 32292,
+          "k": 30502
+        },
+        "interferenceMs": 98
+      },
+      "sessions": {
+        "n": 2430,
+        "participants": 81,
+        "humanPass": {
+          "p": 0.983127572016461,
+          "lo": 0.9771916256388332,
+          "hi": 0.9875383715803779,
+          "n": 2430,
+          "k": 2389
+        },
+        "humanFailByPerson": {
+          "p": 0.016872427983539096,
+          "lo": 0.009465020576131687,
+          "hi": 0.02551440329218107,
+          "people": 81,
+          "n": 2430,
+          "k": 41
+        },
+        "failReasons": {
+          "missed # of # words (each shows for # s): a look-think-act loop": 26,
+          "very uniform answer times (CV #)": 4,
+          "picked the WORD, not the ink, on # of # mismatched words: it read the page text instead of seeing the colour": 8,
+          "only #% of answers matched the ink": 11
+        },
+        "worstParticipants": [
+          {
+            "subject": "354109",
+            "failRate": 0.2,
+            "n": 30
+          },
+          {
+            "subject": "300190",
+            "failRate": 0.133,
+            "n": 30
+          },
+          {
+            "subject": "901381",
+            "failRate": 0.133,
+            "n": 30
+          },
+          {
+            "subject": "318327",
+            "failRate": 0.1,
+            "n": 30
+          },
+          {
+            "subject": "648597",
+            "failRate": 0.1,
+            "n": 30
+          }
+        ],
+        "medianScore": 100,
+        "missed3OrMore": {
+          "p": 0.010699588477366255,
+          "lo": 0.0073120839352930605,
+          "hi": 0.015631726376766693,
+          "n": 2430,
+          "k": 26
+        }
+      },
+      "notes": [
+        "Reaction times here come from a keyboard task; the product asks for a click or tap, which adds pointing time. Treat the window result as a LOWER bound on human lateness.",
+        "The Stroop task in this dataset has more than two colours; an error is mapped to \"chose the word\" for the two-colour product, which can only make humans look worse, never better."
+      ]
+    }
+  },
+  "report": "\n=== typing (invisible pass) ===\n  data quality: 20400 records, 0 dropped, duplicates 0.00%, verdict OK\n\n=== pointer (human vs bot movement) ===\n  data quality: 3616 records, 0 dropped, duplicates 0.00%, verdict OK\n    - short session (<25 samples), kept: <25 samples (68)\n\n=== client identity (agents, crawlers, humans) ===\n  data quality: 2360 records, 58 dropped, duplicates 2.46%, verdict OK after dedupe\n    - a crawler list entry that is a full browser string: browser-shaped (37)\n    - exact duplicate of another record (58)\n    - same content with two different labels (47)\n\n=== colour clash (human calibration) ===\n  data quality: 48517 records, 0 dropped, duplicates 0.00%, verdict OK\n    - neutral trial (not used by the product): neutral (16225)\n    - anticipation (<150 ms): RT < 150 ms (10)\n\n================ RESULTS ================\n\nTyping, real humans (CMU, 20400 samples):\n  invisible pass       99.5% [99.4%, 99.6%] (20299/20400)\n  sent to full check   0.5% [0.4%, 0.6%] (101/20400)   <- false alarms, all \"every key held the same time\"\n     person-level CI   0.5% [0.0%, 1.2%] across 51 people   (the honest one: 51 typists, not 20,400 independent trials)\n  worst typists        s036 12%, s028 11%, s026 1%\nTyping, synthetic adversaries (denied the invisible pass):\n  fixed timing (script)                       100.0% [99.8%, 100.0%] (2000/2000)\n  uniform random jitter                       0.0% [0.0%, 0.2%] (0/2000)\n  instant fill, no keystrokes                 100.0% [99.8%, 100.0%] (2000/2000)\n  form submitted by page script               100.0% [99.8%, 100.0%] (2000/2000)\n  headless browser (webdriver flag)           100.0% [99.8%, 100.0%] (2000/2000)\n  fitted to human averages (adaptive)         0.0% [0.0%, 0.2%] (0/2000)\n  replay of a real human sample (adaptive)    0.7% [0.4%, 1.1%] (13/2000)\n\nPointer, real humans: invisible pass 99.3% [98.6%, 99.7%] (1013/1020)\n  human_tel     not-invisible-pass   6.1%  n=98\n  human_pc2     not-invisible-pass   0.2%  n=459\n  human_fast    not-invisible-pass   0.0%  n=9\n  human_pc1     not-invisible-pass   0.0%  n=187\n  human_pc2_pad not-invisible-pass   0.0%  n=62\n  human_vm      not-invisible-pass   0.0%  n=140\n  balabit       not-invisible-pass   0.0%  n=65\nPointer, bot generators that got the invisible pass:\n  bot_gan                 100.0% [99.8%, 100.0%] (1899/1899)\n  bot_naturalmousemotion  100.0% [98.4%, 100.0%] (234/234)\n  bot_pyhm                100.0% [93.5%, 100.0%] (55/55)\n  bot_pynput              98.0% [96.2%, 99.0%] (400/408)\nFeature separation (AUC; 0.5 = no signal), by generator:\n  peak/mean speed (used by passive.js)                gan:0.81  naturalmousemotion:0.819  pyhm:0.674  pynput:0.505\n  sample-interval CV (used by scoring.js)             gan:0.582  naturalmousemotion:0.904  pyhm:0.6  pynput:0.635\n  event rate Hz (arXiv 2607.26935; NOT used)          gan:0.955  naturalmousemotion:0.802  pyhm:0.557  pynput:0.745\n  teleport-click ratio (arXiv 2607.26935; NOT used)   gan:n/a  naturalmousemotion:n/a  pyhm:n/a  pynput:n/a\n  path straightness (NOT used)                        gan:n/a  naturalmousemotion:n/a  pyhm:n/a  pynput:n/a\n\nClient identity (flagged as automated by shield or audit):\n  agent       n=42   90.5% [77.9%, 96.2%] (38/42)   shield alone 16.7%\n  ai-crawler  n=46   95.7% [85.5%, 98.8%] (44/46)   shield alone 76.1%\n  crawler     n=2087 94.4% [93.3%, 95.3%] (1970/2087)   shield alone 55.9%\n  bot         n=27   77.8% [59.2%, 89.4%] (21/27)   shield alone 44.4%\n  human       n=100  0.0% [0.0%, 3.7%] (0/100)   shield alone 0.0%\n\nColour clash on 32292 real Stroop trials (81 people):\n  reaction time ms  {\"p05\":422,\"median\":660,\"p95\":1234,\"p99\":1474}   answer window 1300 ms\n  trials past the window 3.5% [3.3%, 3.7%] (1135/32292)\n  human sessions passing 98.3% [97.7%, 98.8%] (2389/2430)\n     person-level fail rate 1.7% [0.9%, 2.6%] across 81 people"
+}
