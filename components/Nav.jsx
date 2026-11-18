@@ -15,7 +15,7 @@ export default function Nav() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState('dark');
   useEffect(() => { setTheme(document.documentElement.dataset.theme || 'dark'); }, []);
-  useEffect(() => { setOpen(false); }, [path]);
+  useEffect(() => { setOpen(false); document.querySelectorAll('.admingate').forEach(e => e.remove()); }, [path]);
 
   function flip() {
     const next = theme === 'dark' ? 'light' : 'dark';
