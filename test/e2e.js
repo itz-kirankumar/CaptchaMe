@@ -82,6 +82,19 @@ async function runChallenge(type, payloadFn) {
     check('forged bearer rejected', r.status === 401, 'got ' + r.status);
   }
 
+
+  {
+    // voice without speech recognition (Firefox etc): timing alone, capped
+    const hv = actors.humanVoice(['a','b','c','d'], 21);
+    const r = await runChallenge('voice', P => ({ wordTimings: hv.wordTimings.map((w,i)=>({...w, word: P.words[i], promptStartMs: w.promptStartMs})), transcript: '' }));
+    check('human voice without ASR still passes on timing', r.sub && r.sub.result === 'pass', JSON.stringify(r.sub));
+  }
+  {
+    const bv = actors.botVoice(['a','b','c','d']);
+    const r = await runChallenge('voice', P => ({ wordTimings: bv.wordTimings.map((w,i)=>({...w, word: P.words[i]})), transcript: '' }));
+    check('uniform playback without ASR still fails', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.detail));
+  }
+
   console.log('\n== agent lane ==');
   let agentToken, agentActor;
   {
