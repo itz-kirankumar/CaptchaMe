@@ -109,6 +109,8 @@ function maxAnswerMs(type, P) {
   if (type === 'reflex' || type === 'clash') return P.totalMs + ACTIVE_GRACE_MS;
   if (type === 'beat') return P.beats[P.beats.length - 1] + 800 + ACTIVE_GRACE_MS;
   if (type === 'targets') return P.timeoutMs + 2000;
+  if (type === 'trace' || type === 'oddone') return P.timeoutMs + 2000;
+  if (type === 'buddy') return P.timeoutMs + 5000;
   if (type === 'voice') return P.cadence.reduce((a, b) => a + b, 0) + 15000;
   return 60000;
 }
@@ -144,7 +146,7 @@ function readSession(token) {
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     const s = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
-    if (!s.id || Date.now() - s.iat > SESSION_TTL) return null;
+    if (!s.id || Date.now() - s.iat > (s.ttl || SESSION_TTL)) return null;
     return s;
   } catch { return null; }
 }
@@ -168,7 +170,101 @@ function rateLimit(ip, perMin = 120) {
 // ---------- API: challenges ----------
 // "auto" lets the server pick the format, so an attacker cannot train a
 // solver on one check and point it at every site.
-const AUTO_TYPES = ['ring', 'pulse', 'reflex', 'clash', 'targets'];
+const AUTO_TYPES = ['ring', 'pulse', 'reflex', 'clash', 'targets', 'trace', 'oddone'];
+
+// Surprise me adapts. Formats that bots have recently been getting through are
+// picked less often (never never: a format must stay in play to be measured).
+// As bypass tools improve on one format, traffic moves to the ones they fail.
+let autoCache = { at: 0, weights: null };
+async function autoWeights() {
+  if (autoCache.weights && Date.now() - autoCache.at < 15000) return autoCache.weights;
+  const w = {}, why = {};
+  let rows = [];
+  try { rows = await store.arenaTable(); } catch { rows = []; }
+  for (const t of AUTO_TYPES) {
+    let pass = 0, tries = 0;
+    for (const r of rows) {
+      if (r.format !== 'captchame:' + t || /human|person|unlabelled/i.test(r.attacker || '')) continue;
+      pass += r.pass || 0; tries += (r.pass || 0) + (r.fail || 0);
+    }
+    const rate = (pass + 0.5) / (tries + 5);  // smoothed bot pass rate
+    w[t] = Math.max(0.2, 1 - 2.2 * rate);
+    why[t] = { botPasses: pass, botTries: tries, weight: +w[t].toFixed(2) };
+  }
+  autoCache = { at: Date.now(), weights: w, why };
+  return w;
+}
+async function pickAuto() {
+  const w = await autoWeights();
+  const total = AUTO_TYPES.reduce((a, t) => a + w[t], 0);
+  let x = Math.random() * total;
+  for (const t of AUTO_TYPES) { x -= w[t]; if (x <= 0) return t; }
+  return AUTO_TYPES[AUTO_TYPES.length - 1];
+}
+route('GET', '/api/formats/health', async (req, res) => { await autoWeights(); send(res, 200, { formats: autoCache.why, note: 'Weight is how often Surprise me picks a format. It drops as labelled bots get through that format, so traffic shifts to the formats they fail.' }); });
+
+// Trace: a winding path, sampled once so browser and server agree exactly.
+function tracePath() {
+  const W = 800, H = 450, way = [];
+  const n = 5;
+  for (let i = 0; i < n; i++) way.push([Math.round(70 + (i / (n - 1)) * (W - 140)), Math.round(80 + Math.random() * (H - 160))]);
+  if (Math.random() < 0.5) way.reverse();
+  const pts = [];
+  const cr = (p0, p1, p2, p3, t) => { const t2 = t * t, t3 = t2 * t; return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3); };
+  for (let i = 0; i < way.length - 1; i++) {
+    const p0 = way[Math.max(0, i - 1)], p1 = way[i], p2 = way[i + 1], p3 = way[Math.min(way.length - 1, i + 2)];
+    for (let k = 0; k < 30; k++) { const t = k / 30; pts.push([Math.round(cr(p0[0], p1[0], p2[0], p3[0], t)), Math.round(cr(p0[1], p1[1], p2[1], p3[1], t))]); }
+  }
+  pts.push(way[way.length - 1]);
+  return { field: { w: W, h: H }, pts, timeoutMs: 15000 };
+}
+// Odd one out: per round six dots; five share one motion, one breaks it.
+function oddRounds() {
+  const W = 800, H = 420, rounds = [], odds = [];
+  let at = 300;
+  for (let r = 0; r < 3; r++) {
+    const dir = Math.random() < 0.5 ? 1 : -1, speed = 1.6 + Math.random() * 1.2, odd = Math.floor(Math.random() * 6);
+    const mode = ['reverse', 'faster', 'wobble'][Math.floor(Math.random() * 3)];
+    const dots = [];
+    for (let i = 0; i < 6; i++) {
+      const col = i % 3, row = Math.floor(i / 3);
+      const base = { cx: Math.round(150 + col * 250 + (Math.random() - 0.5) * 50), cy: Math.round(120 + row * 190 + (Math.random() - 0.5) * 40), rad: 28 + Math.round(Math.random() * 14), w: +(dir * speed).toFixed(3), ph: +(Math.random() * 6.283).toFixed(3), wob: 0 };
+      if (i === odd) {
+        if (mode === 'reverse') base.w = +(-dir * speed).toFixed(3);
+        else if (mode === 'faster') base.w = +(dir * speed * 1.9).toFixed(3);
+        else { base.wob = 1; }
+      }
+      dots.push(base);
+    }
+    rounds.push({ at, dots });
+    odds.push(odd);
+    at += 1; // rounds advance on each pick; 'at' is set by the browser's round start
+  }
+  return { field: { w: W, h: H }, rounds, timeoutMs: 20000, odds };
+}
+// Voice buddy: friendly questions with pictures; spoken and shown.
+const BUDDY_BANK = [
+  { q: 'Which animal says moo?', a: 'cow', opts: [['cow', '🐄'], ['cat', '🐈'], ['duck', '🦆'], ['dog', '🐕']] },
+  { q: 'Which animal says quack?', a: 'duck', opts: [['duck', '🦆'], ['cow', '🐄'], ['lion', '🦁'], ['frog', '🐸']] },
+  { q: 'Which animal says woof?', a: 'dog', opts: [['dog', '🐕'], ['cat', '🐈'], ['bird', '🐦'], ['fish', '🐟']] },
+  { q: 'Which one can fly?', a: 'bird', opts: [['bird', '🐦'], ['fish', '🐟'], ['turtle', '🐢'], ['snail', '🐌']] },
+  { q: 'Which one is a fruit?', a: 'apple', opts: [['apple', '🍎'], ['car', '🚗'], ['ball', '⚽'], ['shoe', '👟']] },
+  { q: 'Which one is cold?', a: 'ice', opts: [['ice', '🧊'], ['fire', '🔥'], ['sun', '☀️'], ['cake', '🎂']] },
+  { q: 'Which one do we sleep in?', a: 'bed', opts: [['bed', '🛏️'], ['tree', '🌳'], ['boat', '⛵'], ['pizza', '🍕']] },
+  { q: 'Which one lives in water?', a: 'fish', opts: [['fish', '🐟'], ['dog', '🐕'], ['horse', '🐎'], ['bee', '🐝']] },
+  { q: 'Which one is a moon?', a: 'moon', opts: [['moon', '🌙'], ['star', '⭐'], ['flower', '🌸'], ['house', '🏠']] },
+  { q: 'Which one says meow?', a: 'cat', opts: [['cat', '🐈'], ['cow', '🐄'], ['frog', '🐸'], ['owl', '🦉']] },
+];
+function buddyRounds() {
+  const pick = [...BUDDY_BANK].sort(() => Math.random() - 0.5).slice(0, 3);
+  const rounds = [], answers = [];
+  for (const b of pick) {
+    const opts = [...b.opts].sort(() => Math.random() - 0.5);
+    rounds.push({ q: b.q, opts: opts.map(([w, e]) => ({ word: w, emoji: e })) });
+    answers.push(b.a);
+  }
+  return { rounds, timeoutMs: 240000, answers };
+}
 const CLASH_COLORS = ['RED', 'BLUE'];
 function makeParams(type) {
   let params;
@@ -254,9 +350,13 @@ route('POST', '/api/challenge/start', async (req, res) => {
   const pn = pageNonceCheck(req, body && body.page_nonce);
   if (!pn.ok) return send(res, 403, { error: 'no_page_nonce', reason: 'Challenges start from a live page view. A page running the CaptchaMe script holds a fresh page nonce from /api/page/nonce; a bare API call does not.' });
   const id = crypto.randomBytes(12).toString('hex');
-  const type = body.type === 'auto' ? AUTO_TYPES[Math.floor(Math.random() * AUTO_TYPES.length)] : body.type;
+  const type = body.type === 'auto' ? await pickAuto() : body.type;
   let params = makeParams(type);
+  let answersSealed = null;
   if (params) { /* clash or targets */ }
+  else if (type === 'trace') params = tracePath();
+  else if (type === 'oddone') { const o = oddRounds(); answersSealed = o.odds; delete o.odds; params = o; }
+  else if (type === 'buddy') { const b = buddyRounds(); answersSealed = b.answers; delete b.answers; params = b; }
   else if (type === 'ring') {
     params = {
       ax: 0.22 + Math.random() * 0.12, ay: 0.22 + Math.random() * 0.12,
@@ -292,7 +392,7 @@ route('POST', '/api/challenge/start', async (req, res) => {
     const cadence = words.map(() => 1400 + Math.round(Math.random() * 900)); // ms between word prompts
     params = { words, cadence };
   } else {
-    return send(res, 400, { error: 'bad_type', reason: 'type must be one of ring, beat, reflex, pulse, clash, targets, voice or auto' });
+    return send(res, 400, { error: 'bad_type', reason: 'type must be one of ring, beat, reflex, pulse, clash, targets, trace, oddone, buddy, voice or auto' });
   }
   // Hidden schedule: the ring's jumps and the pulse's flashes are not
   // published up front. The browser learns each one only when it happens,
@@ -303,6 +403,8 @@ route('POST', '/api/challenge/start', async (req, res) => {
   const net = shield.networkRisk(netMeta(req));
   const sess = { id, type, params: publicParams, iat: Date.now(), net: net.score, nr: net.reasons.slice(0, 2), uah: uaHash(req) };
   if (sealed) sess.enc = seal(sealed);
+  if (answersSealed) sess.ans = seal(answersSealed); // answers travel encrypted inside the signed session
+  if (type === 'buddy') sess.ttl = params.timeoutMs + 10000;
   if (typeof body.form_hash === 'string' && /^[a-f0-9]{64}$/i.test(body.form_hash)) sess.form = body.form_hash.toLowerCase();
   {
     const who = attackerOf(req), L = live.attempt('cm', id, type, who);
@@ -435,6 +537,9 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   else if (sess.type === 'voice') minMs = 3000;
   else if (sess.type === 'clash') minMs = 0.7 * sess.params.totalMs;
   else if (sess.type === 'targets') minMs = 2000;
+  else if (sess.type === 'trace') minMs = 900;
+  else if (sess.type === 'oddone') minMs = 1500;
+  else if (sess.type === 'buddy') minMs = 1500;
   const tooFast = elapsedMs < minMs;
   const extraHard = [];
 
@@ -481,6 +586,9 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   else if (sess.type === 'reflex') result = scoring.scoreReflex(sess.params.rounds, body.clicks);
   else if (sess.type === 'clash') result = scoring.scoreClash(sess.params, body.responses);
   else if (sess.type === 'targets') result = scoring.scoreTargets(sess.params, body.clicks, body.samples, body.pointerType);
+  else if (sess.type === 'trace') result = scoring.scoreTrace(sess.params, body.samples);
+  else if (sess.type === 'oddone') result = scoring.scoreOddOne(sess.params, sess.ans ? unseal(sess.ans) : [], body.clicks, body.samples, body.pointerType);
+  else if (sess.type === 'buddy') result = scoring.scoreBuddy(sess.ans ? unseal(sess.ans) : [], body.responses);
   else result = scoring.scoreVoice(sess.params.words, body.wordTimings, body.transcript);
 
   if (tooFast) { result.score = Math.min(result.score, 10); result.flags.push('answered in ' + Math.round(elapsedMs) + ' ms for a challenge that runs ' + Math.round(minMs / 0.7) + ' ms: computed, not performed'); }

@@ -13,6 +13,9 @@ const TABS = [
   ['reflex', 'Catch the flash'],
   ['pulse', 'Follow + catch'],
   ['beat', 'Tap the beat'],
+  ['trace', 'Trace the path', true],
+  ['oddone', 'Odd one out', true],
+  ['buddy', 'Voice buddy', true],
 ];
 
 export default function CheckApp() {
@@ -69,7 +72,7 @@ export default function CheckApp() {
 
       <div className={panel('auto')}>
         <p className="how">The server picks the format and its parameters for you. An attacker cannot train a solver on one check and expect to meet it again.</p>
-        <div className="zone" style={{ minHeight: 160 }} id="autoNote">One of five formats, chosen server-side.</div>
+        <div className="zone" style={{ minHeight: 160 }} id="autoNote">One of seven formats, chosen server-side. Formats that bots have recently got through are picked less often.</div>
         <div className="startrow"><button data-start="auto">Start a surprise check</button></div>
       </div>
 
@@ -80,7 +83,7 @@ export default function CheckApp() {
       </div>
 
       <div className={panel('clash')}>
-        <p className="how">Eight words appear, one at a time. Pick the colour of the <strong>ink</strong>, not the word. Keys: <kbd>F</kbd> or <kbd>←</kbd> for red, <kbd>J</kbd> or <kbd>→</kbd> for blue.</p>
+        <p className="how">Six words appear, one at a time. Pick the colour of the <strong>ink</strong>, not the word. Keys: <kbd>F</kbd> or <kbd>←</kbd> for red, <kbd>J</kbd> or <kbd>→</kbd> for blue.</p>
         <div className="clash-stage"><div className="clash-word" id="clashWord" aria-live="polite" style={{ color: 'var(--muted)', fontSize: 22, fontWeight: 600 }}>Press start, then pick the ink</div></div>
         <div className="clash-progress" id="clashProg"></div>
         <div className="clash-choices">
@@ -109,9 +112,33 @@ export default function CheckApp() {
       </div>
 
       <div className={panel('beat')}>
-        <p className="how">Twelve pulses. Tap along with each one. Keyboard: press Space.</p>
+        <p className="how">Nine pulses. Tap along with each one. Keyboard: press Space.</p>
         <div id="tapzone" tabIndex="0" role="button" aria-label="Tap zone. Press space with each pulse.">Press start, then tap with the pulse</div>
         <div className="startrow"><button data-start="beat">Start</button></div>
+      </div>
+
+      <div className={panel('trace')}>
+        <p className="how">Press on the green dot and draw along the path to the flag without lifting. The path ahead reveals itself as you go.</p>
+        <canvas id="tracefield" width="800" height="450" aria-label="Path to trace" style={{ touchAction: 'none' }}></canvas>
+        <div className="startrow"><button data-start="trace">Start</button><span className="note" style={{ margin: 0 }}>A hand slows in the bends and wobbles a little. A script draws the exact line at one speed.</span></div>
+      </div>
+
+      <div className={panel('oddone')}>
+        <p className="how">Six dots are moving. Five move the same way; click the one that moves differently. Three rounds.</p>
+        <canvas id="oddfield" width="800" height="420" aria-label="Moving dots: pick the odd one"></canvas>
+        <div className="startrow"><button data-start="oddone">Start</button><span className="note" style={{ margin: 0 }}>Any single screenshot shows six still dots. The difference exists only in motion.</span></div>
+      </div>
+
+      <div className={panel('buddy')}>
+        <p className="how">A friendly voice asks three easy picture questions. Answer by saying the word, tapping a picture, or pressing 1 to 4. There is no timer. Made for children and anyone who finds the other checks hard.</p>
+        <div className="buddy" id="buddyStage">
+          <div className="buddy-face" id="buddyFace" aria-hidden="true">🙂</div>
+          <p className="buddy-q" id="buddyQ" aria-live="polite">Press start and turn your sound on.</p>
+          <div className="buddy-dots" id="buddyDots" aria-hidden="true"></div>
+          <div className="buddy-cards" id="buddyCards"></div>
+          <div className="buddy-tools"><button type="button" className="ghost" id="buddyHear" disabled>🔊 Hear it again</button><button type="button" className="ghost" id="buddyMic" disabled>🎤 Say it</button><span className="note" id="buddyHeard" style={{ margin: 0 }}></span></div>
+        </div>
+        <div className="startrow"><button data-start="buddy">Start</button></div>
       </div>
 
       <div id="out" aria-live="polite"></div>

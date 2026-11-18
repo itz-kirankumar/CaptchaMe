@@ -380,3 +380,20 @@ body > footer, .footer { z-index: 0; }
 @keyframes cmFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .cm-spin { animation-duration: 2s; } .cm-loading { animation: none; } }
 .try-frame, .frame-embed, #cmFrame { transition: height .2s ease; }
+
+/* ---------- voice buddy (accessible lane for children) ---------- */
+.buddy { border: 1.5px solid var(--line-2); border-radius: 20px; background: var(--surface-2); padding: 22px 18px; text-align: center; }
+.buddy-face { font-size: 46px; line-height: 1; margin-bottom: 6px; }
+.buddy-q { font-size: clamp(20px, 3vw, 28px); font-weight: 750; color: var(--text); margin: 6px 0 12px; min-height: 1.3em; }
+.buddy-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+.buddy-dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line-2); transition: background .2s, transform .2s; }
+.buddy-dots i.done { background: var(--mark); transform: scale(1.15); }
+.buddy-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 640px) { .buddy-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.buddy-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 8px 14px; border-radius: 18px; background: var(--surface); color: var(--text); border: 2px solid var(--line-2); min-height: 132px; justify-content: center; transition: transform .12s, border-color .12s; }
+.buddy-card:hover, .buddy-card:focus-visible { transform: translateY(-3px); border-color: var(--mark); filter: none; }
+.buddy-card .em { font-size: 56px; line-height: 1; }
+.buddy-card .wd { font-size: 18px; font-weight: 700; text-transform: capitalize; }
+.buddy-card kbd { position: absolute; top: 8px; left: 10px; font-size: 12px; color: var(--muted); }
+.buddy-tools { display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+.buddy-tools button { font-size: 16px; padding: 12px 18px; }

@@ -155,6 +155,9 @@
     idle(ringCv, 'Press start, then keep your pointer on the ring');
     idle(pulseCv, 'Follow the ring, click whenever it flashes');
     idle(targetCv, 'Press start, then click each target as it appears');
+    const tf = document.getElementById('tracefield'), of = document.getElementById('oddfield');
+    if (tf) idle(tf, 'Press start, then draw along the path');
+    if (of) idle(of, 'Press start, then pick the dot that moves differently');
   }
   idleAll();
   window.addEventListener('cm-theme', idleAll);
@@ -282,6 +285,137 @@
       idle(cv, 'Judging...');
       report(await post('/api/challenge/submit', { session: s.session, clicks, samples, pointerType: ptype, env: ENV }));
       idleAll();
+    },
+
+    // Trace the path: press on the start dot and draw to the flag. Only the
+    // stretch ahead of the pen is drawn clearly.
+    async trace(s) {
+      const P = s.params, cv = document.getElementById('tracefield'), ctx = cv.getContext('2d'), pts = P.pts;
+      const samples = [], t0 = performance.now();
+      let down = false, prog = 0, done, ptype = 'mouse';
+      const nearIdx = p => { let b = Infinity, bi = prog; for (let i = Math.max(0, prog - 10); i < Math.min(pts.length, prog + 40); i++) { const d = Math.hypot(pts[i][0] - p.x, pts[i][1] - p.y); if (d < b) { b = d; bi = i; } } return { i: bi, d: b }; };
+      function draw(pen) {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.strokeStyle = col('--line-2'); ctx.globalAlpha = 0.35; ctx.lineWidth = 3; ctx.setLineDash([4, 8]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+        const end = Math.min(pts.length, prog + 34);
+        ctx.beginPath(); for (let i = prog; i < end; i++) (i === prog ? ctx.moveTo(pts[i][0], pts[i][1]) : ctx.lineTo(pts[i][0], pts[i][1])); ctx.strokeStyle = col('--mark'); ctx.lineWidth = 22; ctx.globalAlpha = 0.18; ctx.stroke(); ctx.lineWidth = 4; ctx.globalAlpha = 1; ctx.stroke();
+        if (samples.length > 1) { ctx.beginPath(); samples.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.strokeStyle = col('--text'); ctx.lineWidth = 2.5; ctx.globalAlpha = 0.75; ctx.stroke(); ctx.globalAlpha = 1; }
+        const st = pts[0], en = pts[pts.length - 1];
+        ctx.beginPath(); ctx.arc(st[0], st[1], 13, 0, 7); ctx.fillStyle = col('--human'); ctx.fill();
+        ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🏁', en[0], en[1] - 4);
+        if (pen) { ctx.beginPath(); ctx.arc(pen.x, pen.y, 6, 0, 7); ctx.fillStyle = col('--text'); ctx.fill(); }
+      }
+      const onDown = e => { const p = pointIn(cv, e); ptype = e.pointerType || ptype; if (!down && Math.hypot(p.x - pts[0][0], p.y - pts[0][1]) < 30) { down = true; try { cv.setPointerCapture(e.pointerId); } catch { /* old browsers */ } } };
+      const onMove = e => {
+        if (!down) return;
+        const p = pointIn(cv, e);
+        if (samples.length < 3000) samples.push({ t: Math.round(performance.now() - t0), x: +p.x.toFixed(1), y: +p.y.toFixed(1) });
+        const n = nearIdx(p); if (n.d < 40 && n.i > prog) prog = n.i;
+        draw(p);
+        if (prog >= pts.length - 3) done();
+      };
+      const onUp = () => { if (down && prog > pts.length * 0.5) done(); down = false; };
+      cv.addEventListener('pointerdown', onDown); cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerup', onUp);
+      draw();
+      await new Promise(resolve => { done = resolve; setTimeout(resolve, P.timeoutMs); });
+      cv.removeEventListener('pointerdown', onDown); cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerup', onUp);
+      idle(cv, 'Judging...');
+      report(await post('/api/challenge/submit', { session: s.session, samples, pointerType: ptype, env: ENV }));
+      idleAll();
+    },
+
+    // Odd one out: six moving dots, one breaks the pattern. Three rounds.
+    async oddone(s) {
+      const P = s.params, cv = document.getElementById('oddfield'), ctx = cv.getContext('2d');
+      const clicks = [], samples = [], t0 = performance.now();
+      let r = 0, rStart = performance.now(), done, ptype = 'mouse', flashAt = 0;
+      const posOf = (d, t) => { const a = d.w * t + d.ph, j = d.wob ? Math.sin(t * 9 + d.ph) * 10 : 0; return { x: d.cx + Math.cos(a) * d.rad + j, y: d.cy + Math.sin(a) * d.rad - j * 0.6 }; };
+      let raf;
+      (function frame() {
+        const now = performance.now(), t = (now - t0) / 1000, R = P.rounds[r];
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        if (R) {
+          for (const d of R.dots) { const p = posOf(d, t); ctx.beginPath(); ctx.arc(p.x, p.y, 15, 0, 7); ctx.fillStyle = col('--mark'); ctx.globalAlpha = 0.9; ctx.fill(); ctx.globalAlpha = 1; }
+          ctx.fillStyle = col('--muted'); ctx.font = '600 15px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Round ' + (r + 1) + ' / ' + P.rounds.length, 14, 12);
+        }
+        if (now - flashAt < 180) { ctx.fillStyle = col('--mark'); ctx.globalAlpha = 0.08 * (1 - (now - flashAt) / 180); ctx.fillRect(0, 0, cv.width, cv.height); ctx.globalAlpha = 1; }
+        raf = requestAnimationFrame(frame);
+      })();
+      const onMove = e => { const p = pointIn(cv, e); if (samples.length < 4000) samples.push({ t: Math.round(performance.now() - t0), x: +p.x.toFixed(1), y: +p.y.toFixed(1) }); };
+      const onDown = e => {
+        const R = P.rounds[r]; if (!R) return;
+        ptype = e.pointerType || ptype;
+        const p = pointIn(cv, e), t = (performance.now() - t0) / 1000;
+        let best = -1, bd = Infinity;
+        R.dots.forEach((d, i) => { const q = posOf(d, t), dd = Math.hypot(q.x - p.x, q.y - p.y); if (dd < bd) { bd = dd; best = i; } });
+        if (bd > 34) return;
+        clicks.push({ round: r, i: best, t: Math.round(performance.now() - rStart), x: +p.x.toFixed(1), y: +p.y.toFixed(1) });
+        r++; rStart = performance.now(); flashAt = rStart;
+        if (r >= P.rounds.length) done();
+      };
+      cv.addEventListener('pointermove', onMove); cv.addEventListener('pointerdown', onDown);
+      await new Promise(resolve => { done = resolve; setTimeout(resolve, P.timeoutMs); });
+      cancelAnimationFrame(raf);
+      cv.removeEventListener('pointermove', onMove); cv.removeEventListener('pointerdown', onDown);
+      idle(cv, 'Judging...');
+      report(await post('/api/challenge/submit', { session: s.session, clicks, samples, pointerType: ptype, env: ENV }));
+      idleAll();
+    },
+
+    // Voice buddy: spoken picture questions, answered by voice, tap or 1-4.
+    async buddy(s) {
+      const P = s.params, $q = document.getElementById('buddyQ'), $cards = document.getElementById('buddyCards'), $dots = document.getElementById('buddyDots');
+      const $hear = document.getElementById('buddyHear'), $mic = document.getElementById('buddyMic'), $heard = document.getElementById('buddyHeard'), $face = document.getElementById('buddyFace');
+      const responses = [];
+      const synth = window.speechSynthesis;
+      const voice = (() => { try { const v = synth.getVoices(); return v.find(x => /en/i.test(x.lang) && /female|samantha|zira|google uk english female|aria|jenny/i.test(x.name)) || v.find(x => /^en/i.test(x.lang)) || null; } catch { return null; } })();
+      const say = text => new Promise(res => { try { if (!synth) return res(); synth.cancel(); const u = new SpeechSynthesisUtterance(text); if (voice) u.voice = voice; u.rate = 0.88; u.pitch = 1.15; u.onend = res; u.onerror = res; synth.speak(u); setTimeout(res, 6000); } catch { res(); } });
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let r = 0, rStart = 0, finish, rec = null;
+      $dots.innerHTML = P.rounds.map(() => '<i></i>').join('');
+      function pick(choice, via, trusted) {
+        if (r >= P.rounds.length || responses.some(x => x.round === r)) return;
+        responses.push({ round: r, choice, via, trusted, t: Math.round(performance.now() - rStart) });
+        $dots.children[r].classList.add('done');
+        $face.textContent = '😄';
+        r++;
+        if (r >= P.rounds.length) { say('All done. Thank you!').then(() => finish()); $q.textContent = 'All done. Thank you!'; $cards.innerHTML = ''; }
+        else { say('Thank you!').then(ask); }
+      }
+      function ask() {
+        const R = P.rounds[r];
+        $face.textContent = '🙂'; $heard.textContent = '';
+        $q.textContent = R.q;
+        $cards.innerHTML = R.opts.map((o, i) => '<button type="button" class="buddy-card" data-w="' + o.word + '" aria-label="' + (i + 1) + ': ' + o.word + '"><span class="em">' + o.emoji + '</span><span class="wd">' + o.word + '</span><kbd>' + (i + 1) + '</kbd></button>').join('');
+        rStart = performance.now();
+        say(R.q);
+      }
+      const onCard = e => { const b = e.target.closest('.buddy-card'); if (b) pick(b.dataset.w, 'tap', e.isTrusted); };
+      const onKey = e => { const n = parseInt(e.key, 10); if (n >= 1 && n <= 4 && P.rounds[r]) pick(P.rounds[r].opts[n - 1].word, 'key', e.isTrusted); };
+      const onHear = () => { if (P.rounds[r]) say(P.rounds[r].q); };
+      const onMic = () => {
+        if (!SR || rec) return;
+        rec = new SR(); rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 3;
+        $heard.textContent = 'Listening…'; $face.textContent = '👂';
+        rec.onresult = ev => {
+          const heard = [...ev.results[0]].map(a => a.transcript.toLowerCase()).join(' ');
+          $heard.textContent = 'I heard: ' + heard;
+          const R = P.rounds[r], hit = R && R.opts.find(o => new RegExp('\\b' + o.word + 's?\\b').test(heard));
+          if (hit) pick(hit.word, 'voice', true); else { $face.textContent = '🤔'; say('Can you say that again?'); }
+        };
+        rec.onend = () => { rec = null; if ($heard.textContent === 'Listening…') $heard.textContent = ''; };
+        try { rec.start(); } catch { rec = null; }
+      };
+      $cards.addEventListener('click', onCard); window.addEventListener('keydown', onKey); $hear.addEventListener('click', onHear); $mic.addEventListener('click', onMic);
+      $hear.disabled = false; $mic.disabled = !SR; if (!SR) $mic.title = 'Voice answers need Chrome or Edge; tap a picture instead.';
+      await say("Hi! Let's play. Listen and pick the picture.");
+      ask();
+      await new Promise(resolve => { finish = resolve; setTimeout(resolve, P.timeoutMs); });
+      $cards.removeEventListener('click', onCard); window.removeEventListener('keydown', onKey); $hear.removeEventListener('click', onHear); $mic.removeEventListener('click', onMic);
+      $hear.disabled = $mic.disabled = true;
+      report(await post('/api/challenge/submit', { session: s.session, responses, env: ENV }));
+      $q.textContent = 'Press start and turn your sound on.'; $face.textContent = '🙂'; $dots.innerHTML = '';
     },
   };
 
