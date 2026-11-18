@@ -45,6 +45,15 @@ npm run demo:attack  # attack a running server; watch the dashboard catch each o
 Dashboard: http://localhost:3000/dashboard.html (admin key `demo-admin`,
 override with `POP_ADMIN_KEY`).
 
+## Vercel
+
+The repo deploys to Vercel as-is: `api/[...all].js` handles every `/api/*`
+route and `public/` is served statically. Two honest limits on serverless:
+challenge replay tracking and the fair-share ledger live in memory per
+instance, so a cold start resets the ledger and a replay is only caught when
+it lands on the instance that saw the first answer. For a stage demo on one
+warm instance this holds; for production, move both to a shared store.
+
 ## Five-minute stage demo
 
 1. Open the dashboard on the projector.
