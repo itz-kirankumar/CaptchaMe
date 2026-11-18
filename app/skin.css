@@ -354,3 +354,29 @@ body > footer, .footer { z-index: 0; }
 @media (max-width: 640px) { .dd-btn { font-size: 16px; } .dd-list { left: 0; right: 0; } }
 .th-bar { z-index: 20; }
 .dd-list { background: color-mix(in srgb, var(--surface) 98%, transparent); }
+
+/* ---------- mark colour, light theme contrast, check loader ---------- */
+/* --mark: the colour for the logo ring and the check's rings and targets.
+   Neon lime reads on dark; on the light theme it fades into the paper, so the
+   light theme uses a deeper green that keeps the same hue. */
+:root { --mark: var(--brand); --mark-track: .3; }
+[data-theme="light"] {
+  --mark: #5c8a00; --mark-track: .22;
+  --brand-text: #3f5c00;
+  --brand-soft: rgba(92,138,0,.12);
+  --line: rgba(12,14,20,.10); --line-2: rgba(12,14,20,.20);
+  --muted: #4d5462; --faint: #7a8090;
+}
+[data-theme="light"] .th-h1 em { background-image: linear-gradient(100deg, #4f7a00 20%, #7fb100 55%, #4f7a00 100%); }
+[data-theme="light"] .th-tag i, [data-theme="light"] .badge .dot, [data-theme="light"] .live-dot { background: var(--mark); }
+[data-theme="light"] .th-logo, [data-theme="light"] .rn-logo { color: var(--mark); }
+[data-theme="light"] .tab.on { color: var(--brand-text); border-color: color-mix(in srgb, var(--mark) 45%, transparent); }
+[data-theme="light"] .tab .new { background: var(--brand); color: var(--brand-ink); }
+[data-theme="light"] .wordmark b { color: var(--mark); }
+
+.cm-loading { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; padding: 22px 20px; border-radius: var(--radius, 14px); border: 1.5px dashed var(--line-2); background: var(--surface-2); color: var(--muted); font-weight: 600; animation: cmFadeIn .25s ease both; }
+.cm-spin { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 2.5px solid var(--line-2); border-top-color: var(--mark); animation: cmSpin .75s linear infinite; }
+@keyframes cmSpin { to { transform: rotate(360deg); } }
+@keyframes cmFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cm-spin { animation-duration: 2s; } .cm-loading { animation: none; } }
+.try-frame, .frame-embed, #cmFrame { transition: height .2s ease; }

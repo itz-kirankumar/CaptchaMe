@@ -26,6 +26,6 @@ export default function Page() {
         <div className="try-pass" id="tryPass" aria-live="polite"></div>
       </section>
     </div>
-    <ScriptEngine srcs={['/engines/try.js']} />
+    <ScriptEngine srcs={['/engines/embedfit.js', '/engines/try.js']} />
   </>);
 }

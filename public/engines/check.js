@@ -17,25 +17,45 @@
     try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
     return NONCE;
   }
+  // A visible loader while the server prepares or judges a check, so nobody
+  // stares at an empty box and then gets a verdict out of nowhere.
+  function loading(text) {
+    out.innerHTML = '<div class="cm-loading" role="status" aria-live="polite"><span class="cm-spin" aria-hidden="true"></span><span></span></div>';
+    out.querySelector('.cm-loading span:last-child').textContent = text;
+    reveal();
+  }
+  function reveal() { try { out.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* old browsers */ } }
   async function post(url, body) {
-    if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
-    if (url === '/api/challenge/submit' && FORM) body = { ...body, form_hash: FORM };
+    if (url === '/api/challenge/start') { loading('Getting a fresh check from the server…'); const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
+    if (url === '/api/challenge/submit') { loading('Judging your response…'); if (FORM) body = { ...body, form_hash: FORM }; }
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    return { status: r.status, body: await r.json() };
+    let b = {};
+    try { b = await r.json(); } catch { b = { reason: 'The server sent an unreadable reply (' + r.status + ').' }; }
+    return { status: r.status, body: b };
   }
   function show(text) { out.innerHTML = '<div class="result fail"></div>'; out.firstChild.textContent = text; }
   function busy(on) { app.querySelectorAll('[data-start]').forEach(b => { b.disabled = on; }); }
+  // Inside an iframe, tell the parent page how tall this check is, so the
+  // frame grows with it instead of hiding the play field behind a scrollbar.
+  if (EMBED && window.parent !== window) {
+    let lastH = 0;
+    const tell = () => { const h = Math.ceil(document.documentElement.scrollHeight); if (Math.abs(h - lastH) > 4) { lastH = h; try { window.parent.postMessage({ type: 'captchame:height', height: h }, '*'); } catch { /* cross-origin */ } } };
+    try { new ResizeObserver(tell).observe(document.body); } catch { setInterval(tell, 500); }
+    window.addEventListener('load', tell); tell();
+  }
   function report(res) {
     busy(false);
+    if (!res || !res.body || res.status >= 500) { show('The server could not judge this run' + (res && res.body && res.body.reason ? ': ' + res.body.reason : '') + '. Please try again.'); return; }
     const passed = verdict(out, res, { embed: EMBED, failHint: 'Retry, pick another format, or use the voice path.' });
+    reveal();
     if (passed && EMBED && window.parent !== window) {
       try { window.parent.postMessage({ type: 'captchame:pass', pass_token: res.body && res.body.pass_token, score: res.body && res.body.score }, '*'); } catch { /* cross-origin parent */ }
     }
   }
   async function begin(type) {
-    out.innerHTML = '';
     const r = await post('/api/challenge/start', { type });
     if (r.status !== 200) { show('Could not start: ' + (r.body.reason || r.status)); return null; }
+    out.innerHTML = '';
     return r.body;
   }
   function idle(cv, text) {
@@ -113,11 +133,11 @@
         const g = lissajous(P, cv, t), h = hot(t);
         ctx.clearRect(0, 0, cv.width, cv.height);
         ctx.beginPath(); ctx.arc(g.x, g.y, h ? 36 : 28, 0, 7);
-        ctx.strokeStyle = h ? col('--warn') : col('--brand'); ctx.lineWidth = h ? 6 : 3.5; ctx.stroke();
-        ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, 7); ctx.fillStyle = h ? col('--warn') : col('--brand'); ctx.fill();
+        ctx.strokeStyle = h ? col('--warn') : col('--mark'); ctx.lineWidth = h ? 6 : 3.5; ctx.stroke();
+        ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, 7); ctx.fillStyle = h ? col('--warn') : col('--mark'); ctx.fill();
         // progress bar along the bottom
         ctx.fillStyle = col('--surface-3'); ctx.fillRect(0, cv.height - 5, cv.width, 5);
-        ctx.fillStyle = col('--brand'); ctx.fillRect(0, cv.height - 5, cv.width * (t / P.durationMs), 5);
+        ctx.fillStyle = col('--mark'); ctx.fillRect(0, cv.height - 5, cv.width * (t / P.durationMs), 5);
         if (pos) {
           ctx.beginPath(); ctx.arc(pos.x, pos.y, 8, 0, 7); ctx.fillStyle = col('--text'); ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
           samples.push({ t: Math.round(t), x: +(pos.x / cv.width).toFixed(4), y: +(pos.y / cv.height).toFixed(4) });
@@ -240,9 +260,9 @@
         ctx.clearRect(0, 0, cv.width, cv.height);
         const tg = P.targets[i];
         if (!tg) return;
-        ctx.beginPath(); ctx.arc(tg.x, tg.y, tg.r, 0, 7); ctx.fillStyle = col('--brand'); ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1;
-        ctx.lineWidth = 3; ctx.strokeStyle = col('--brand'); ctx.stroke();
-        ctx.beginPath(); ctx.arc(tg.x, tg.y, 3, 0, 7); ctx.fillStyle = col('--brand'); ctx.fill();
+        ctx.beginPath(); ctx.arc(tg.x, tg.y, tg.r, 0, 7); ctx.fillStyle = col('--mark'); ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.lineWidth = 3; ctx.strokeStyle = col('--mark'); ctx.stroke();
+        ctx.beginPath(); ctx.arc(tg.x, tg.y, 3, 0, 7); ctx.fillStyle = col('--mark'); ctx.fill();
         ctx.fillStyle = col('--muted'); ctx.font = '600 15px "JetBrains Mono", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
         ctx.fillText((i + 1) + ' / ' + P.targets.length, 14, 12);
       }

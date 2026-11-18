@@ -96,7 +96,7 @@ export default function Page() {
         <p className="lr-sub">Every layer 1 verdict, rival captcha attempt and scrape becomes a packet. Layer 2 merges packets into one identity per real client (across address, handshake signature and browser fingerprint), names the bypass family, and decides what that identity may do next.</p>
         <div className="lr-console" id="l2Console" role="log" aria-label="Layer 2 handoff log"></div>
       </section>
-      <ScriptEngine srcs={['/engines/live.js']} />
+      <ScriptEngine srcs={['/engines/embedfit.js', '/engines/live.js']} />
     </div>
   );
 }

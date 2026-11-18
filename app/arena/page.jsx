@@ -82,6 +82,6 @@ export default function Page() {
         </tbody>
       </table></div></div>
     </section>
-    <ScriptEngine srcs={['/engines/admin.js', '/engines/arena.js']} />
+    <ScriptEngine srcs={['/engines/embedfit.js', '/engines/admin.js', '/engines/arena.js']} />
   </>);
 }
