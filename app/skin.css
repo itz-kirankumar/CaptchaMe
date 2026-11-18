@@ -242,3 +242,42 @@ html, body { overflow-x: clip; }
 /* minimal polish for the live stack */
 .lv { border-color: var(--line-2); background: var(--surface); }
 .lv-log { font-size: 12.5px; line-height: 1.7; }
+
+/* ---------- /evidence ---------- */
+.ev-sec { max-width: 1100px; margin: 0 auto 48px; }
+.ev-sec h2 { font-size: clamp(24px, 3vw, 32px); margin-bottom: 8px; }
+.ev-sub { color: var(--muted); max-width: 760px; margin-bottom: 16px; }
+.ev-sub a, .ev-note a { color: var(--brand-text); }
+.ev-cap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ev-table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--line-2); border-radius: 18px; overflow: hidden; font-size: 14px; }
+.ev-table th, .ev-table td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); text-transform: none; letter-spacing: 0; font: inherit; }
+.ev-table thead th { color: var(--muted); font: 600 11.5px var(--font-mono); text-transform: uppercase; letter-spacing: .06em; background: var(--surface-2); }
+.ev-table tbody th[scope="row"] { font-weight: 650; color: var(--text); }
+.ev-table .ev-group th { background: var(--bg-2); color: var(--brand-text); font: 700 11.5px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.ev-table tr:last-child > * { border-bottom: 0; }
+.ev-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+.ev-card h3 { font-size: 18px; margin-bottom: 10px; }
+.ev-card ul, .ev-box ul { padding-left: 18px; color: var(--muted); }
+.ev-card li, .ev-box li { margin: 6px 0; }
+.ev-card li b, .ev-card p b { color: var(--text); }
+.ev-note { color: var(--muted); font-size: 13.5px; margin-top: 10px; }
+.ev-box { margin-top: 16px; }
+.ev-mini { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+.ev-mini caption { text-align: left; color: var(--faint); font: 600 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; padding-bottom: 6px; }
+.ev-mini th, .ev-mini td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); text-transform: none; letter-spacing: 0; font: inherit; color: var(--muted); }
+.ev-mini thead th { color: var(--faint); font: 600 11px var(--font-mono); }
+.ev-mini tbody th { color: var(--text); font-weight: 600; }
+@media (max-width: 900px) { .ev-grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .ev-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ev-table, .ev-table tbody, .ev-table tr, .ev-table th, .ev-table td { display: block; width: 100%; }
+  .ev-table tr { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .ev-table th, .ev-table td { padding: 3px 0; border: 0; }
+  .ev-table td::before { content: attr(data-label); display: block; color: var(--faint); font: 600 10.5px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+  .ev-table tbody th[scope="row"][data-label]::before { content: none; }
+  .ev-table .ev-group { padding: 0; } .ev-table .ev-group th { padding: 8px 14px; }
+  .ev-table tbody th[scope="row"] { font-size: 16px; }
+  .ev-mini { display: block; overflow-wrap: anywhere; }
+}
+.card.landing-ev { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.card.landing-ev > div { flex: 1; min-width: 240px; }

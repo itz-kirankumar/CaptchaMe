@@ -33,6 +33,8 @@ export default function Home() {
       <p className="th-more"><Link className="btn ghost" href="/layer2">Open the full layer 2 analysis</Link> <Link className="btn ghost" href="/try">Try the captchas by hand</Link></p>
     </section>
 
+    <section className="block demo-sec"><div className="card landing-ev"><div><span className="kicker">3 &middot; Evidence</span><h3>When a captcha fails, abuseguard limits the damage</h3><p>See what we measured on public data, what we have not measured, and how the optional budget layer caps what any one person can take.</p></div><Link className="btn ghost" href="/evidence">Open the evidence</Link></div></section>
+
     <div className="rn-modal" id="runModal" hidden role="dialog" aria-modal="true" aria-label="Attack run">
       <div className="rn-sheet">
         <canvas className="rn-rain" id="rnRain" aria-hidden="true"></canvas>

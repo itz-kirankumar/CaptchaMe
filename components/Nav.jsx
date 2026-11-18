@@ -8,6 +8,7 @@ export const LINKS = [
   ['/#livestack', 'Live demo'],
   ['/#stopped', 'Where attacks stop'],
   ['/layer2', 'Layer 2 analysis'],
+  ['/evidence', 'Evidence'],
 ];
 
 export default function Nav() {

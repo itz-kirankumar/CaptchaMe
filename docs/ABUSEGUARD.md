@@ -1,4 +1,4 @@
-# abuseguard: the second layer behind CaptchaMe
+# abuseguard: the optional third layer (fair-share budget) behind CaptchaMe
 
 CaptchaMe answers **"is a live person (or a declared agent) here?"** It cannot answer **"is this the same
 person as the other twelve accounts that already took the free tier?"** abuseguard answers that, so the
