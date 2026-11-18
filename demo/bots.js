@@ -72,14 +72,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('8. DOM-reading agent: follows the hidden verification link only a program can see');
+  console.log('8. Step agent on the dual-task check: slow reactions, drops the ring while reacting');
+  {
+    const s = await post('/api/challenge/start', { type: 'pulse' });
+    const a = actors.agentPulse(s.body.params);
+    await sleep(5200); // even a bot must spend the real time now
+    const r = await post('/api/challenge/submit', { session: s.body.session, samples: a.samples, clicks: a.clicks });
+    console.log('   ->', r.body.result, '| score', r.body.score, '|', r.body.flags[0] || '');
+  }
+  await sleep(800);
+
+  console.log('9. DOM-reading agent: follows the hidden verification link only a program can see');
   {
     const r = await fetch(BASE + '/trap');
     console.log('   -> HTTP', r.status, '| logged as automated traffic on the dashboard');
   }
   await sleep(800);
 
-  console.log('9. Replay attack: steal a finished session and answer it again');
+  console.log('10. Replay attack: steal a finished session and answer it again');
   {
     const s = await post('/api/challenge/start', { type: 'beat' });
     await post('/api/challenge/submit', { session: s.body.session, taps: actors.humanBeat(s.body.params.beats, 5) });
@@ -88,7 +98,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('10. Scraper: hammer the protected API with no presence, no declaration');
+  console.log('11. Scraper: hammer the protected API with no presence, no declaration');
   {
     const jar = [];
     for (let i = 0; i < 9; i++) {
@@ -100,7 +110,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('11. The honest agent: declares with a signed key, no puzzle, own budget');
+  console.log('12. The honest agent: declares with a signed key, no puzzle, own budget');
   {
     const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
     const pub = publicKey.export({ format: 'der', type: 'spki' }).toString('base64');

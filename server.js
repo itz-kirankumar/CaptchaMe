@@ -1,6 +1,6 @@
 'use strict';
 /*
- * Proof of Presence - hackathon build.
+ * CaptchaMe - hackathon build.
  * Zero dependencies. Run: node server.js  (default port 3000)
  *
  * Three lanes through one door:
@@ -120,6 +120,16 @@ route('POST', '/api/challenge/start', async (req, res) => {
     const beats = []; let t = 1500;
     for (let i = 0; i < 12; i++) { beats.push(Math.round(t)); t += 550 + Math.random() * 200; }
     params = { beats };
+  } else if (type === 'pulse') {
+    const flashes = [];
+    let ft = 1400 + Math.random() * 800;
+    while (ft < 6200) { flashes.push(Math.round(ft)); ft += 1500 + Math.random() * 1500; }
+    params = {
+      ax: 0.26 + Math.random() * 0.12, ay: 0.22 + Math.random() * 0.12,
+      fx: 0.07 + Math.random() * 0.08, fy: 0.05 + Math.random() * 0.06,
+      px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
+      durationMs: 7000, flashes, flashWindowMs: 800,
+    };
   } else if (type === 'reflex') {
     const rounds = []; let t = 1200;
     for (let i = 0; i < 5; i++) { rounds.push({ at: Math.round(t), windowMs: 900 }); t += 1400 + Math.random() * 1900; }
@@ -149,7 +159,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   // real duration. A script can fake every signal and still submit instantly.
   const elapsedMs = Date.now() - sess.iat;
   let minMs = 0;
-  if (sess.type === 'ring') minMs = 0.7 * sess.params.durationMs;
+  if (sess.type === 'ring' || sess.type === 'pulse') minMs = 0.7 * sess.params.durationMs;
   else if (sess.type === 'reflex') minMs = 0.7 * sess.params.totalMs;
   else if (sess.type === 'beat') minMs = 0.7 * (sess.params.beats[sess.params.beats.length - 1] + 800);
   else if (sess.type === 'voice') minMs = 3000;
@@ -160,7 +170,8 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   const webdriver = env.webdriver === true;
 
   let result;
-  if (sess.type === 'ring') result = scoring.scoreRingDarts(sess.params, body.samples);
+  if (sess.type === 'pulse') result = scoring.scorePulse(sess.params, body.samples, body.clicks);
+  else if (sess.type === 'ring') result = scoring.scoreRingDarts(sess.params, body.samples);
   else if (sess.type === 'beat') result = scoring.scoreBeat(sess.params.beats, body.taps);
   else if (sess.type === 'reflex') result = scoring.scoreReflex(sess.params.rounds, body.clicks);
   else result = scoring.scoreVoice(sess.params.words, body.wordTimings, body.transcript);
@@ -168,7 +179,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   if (tooFast) { result.score = Math.min(result.score, 10); result.flags.push('answered in ' + Math.round(elapsedMs) + ' ms for a challenge that runs ' + Math.round(minMs / 0.7) + ' ms: computed, not performed'); }
   if (webdriver) { result.score = Math.min(result.score, 10); result.flags.push('browser reports it is under automation control (navigator.webdriver)'); }
 
-  const passed = result.score >= 60 && !tooFast && !webdriver && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control/.test(f));
+  const passed = result.score >= 60 && !tooFast && !webdriver && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired|computed, not performed|automation control|one task at a time/.test(f));
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
 
   if (passed) {
@@ -335,7 +346,7 @@ const handler = async (req, res) => {
 if (require.main === module) {
   const server = http.createServer(handler);
   server.listen(PORT, () => {
-    console.log(`Proof of Presence listening on http://localhost:${PORT}`);
+    console.log(`CaptchaMe listening on http://localhost:${PORT}`);
     console.log(`Dashboard: http://localhost:${PORT}/dashboard.html  (admin key: ${ADMIN_KEY})`);
   });
 }

@@ -1,4 +1,4 @@
-# Proof of Presence
+# CaptchaMe
 
 The tools that beat CAPTCHAs are sold openly, some on the official Chrome Web
 Store. Buster solves audio puzzles with speech-to-text for about 700,000
@@ -105,5 +105,17 @@ Three layers beyond the base build, aimed at the tools people actually use to ge
 - **Honeypot trap link** - an offscreen, aria-hidden link labelled for machines ("complete verification here"). People never see it; screen readers skip it; DOM-reading agents follow it and get logged as automated traffic.
 
 STT-based audio solvers (the Buster approach) hit the voice path, which scores vocal onset timing per word and caps a no-transcript pass at 70, so a solved voice challenge is worth less on the ledger than a solved interactive one.
+
+## Round 3: dual-task and drift
+
+- **Pulse (dual-task)** - follow the ring while random flashes demand a click within 800 ms. A person splits attention and wobbles on the ring while reacting. A step agent (screenshot, think, click) reacts too slowly to the flashes and its ring tracking collapses while it is busy. Scoring checks reaction windows plus tracking degradation during each flash.
+- **Rhythm drift check** - the ring scorer now fits the tracking lag per window and flags when the lag drifts more than 120 ms across one challenge. A bot whose synthetic lag random-walks shows drift a steady human arm does not.
+- **/compare.html** - the captcha types on 2captcha's demo page next to that vendor's own published prices and solve speeds, with sources. The point: every classic type is solved as a paid service today; CaptchaMe checks for a live, embodied person instead of a puzzle answer.
+
+## What still gets through (honest residuals)
+
+- A dedicated simulator that waits the full challenge time and submits human-shaped tracking samples can pass pulse today. The wall-clock floor still forces it to spend real seconds per attempt and the fair-share ledger caps what any actor can earn, so farming stays unprofitable - but we do not claim it is stopped.
+- A good TTS+STT pipeline with human-like jitter passes the voice path at full score. Same backstop: the ledger cap. A prosody check (say the second word louder) is designed but not built.
+- Real commercial agentic browsers (Comet, Atlas, ChatGPT agent mode) have not been run against the live site yet. Our own cloud-browser agent attempt failed the flash check.
 
 Human friction budget: ring 7s, beat ~9s, voice ~8s, flash ~11s. One screen, one try, no puzzles.

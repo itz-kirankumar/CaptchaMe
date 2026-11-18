@@ -171,3 +171,72 @@ document.getElementById('startReflex').addEventListener('click', async () => {
   }
   requestAnimationFrame(tick);
 });
+
+// ---------- pulse (dual-task) ----------
+const pcv = document.getElementById('pulsefield');
+const pctx = pcv.getContext('2d');
+(function drawPulseIdle() {
+  pctx.clearRect(0, 0, pcv.width, pcv.height);
+  pctx.fillStyle = '#9aa4b8'; pctx.font = '16px sans-serif'; pctx.textAlign = 'center';
+  pctx.fillText('Press start, follow the ring, click when it flashes', pcv.width / 2, pcv.height / 2);
+})();
+
+document.getElementById('startPulse').addEventListener('click', async () => {
+  const r = await post('/api/challenge/start', { type: 'pulse' });
+  if (r.status !== 200) return show('fail', 'Could not start: ' + (r.body.reason || r.status));
+  const P = r.body.params;
+  const samples = [], clicks = [];
+  const t0 = performance.now();
+  let px = null, py = null;
+
+  function target(tms) {
+    const t = tms / 1000;
+    return {
+      x: (0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + P.px)) * pcv.width,
+      y: (0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + P.py)) * pcv.height,
+    };
+  }
+  function onMove(e) {
+    const rect = pcv.getBoundingClientRect();
+    const pt = e.touches ? e.touches[0] : e;
+    px = (pt.clientX - rect.left) * (pcv.width / rect.width);
+    py = (pt.clientY - rect.top) * (pcv.height / rect.height);
+  }
+  function onClick() {
+    const t = performance.now() - t0;
+    if (t < P.durationMs) clicks.push(Math.round(t));
+  }
+  pcv.addEventListener('pointermove', onMove);
+  pcv.addEventListener('touchmove', onMove, { passive: true });
+  pcv.addEventListener('pointerdown', onClick);
+  const keyH = e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); onClick(); } };
+  window.addEventListener('keydown', keyH);
+
+  function flashing(t) {
+    return P.flashes.some(f => t >= f && t <= f + P.flashWindowMs);
+  }
+  function frame() {
+    const t = performance.now() - t0;
+    if (t >= P.durationMs) return finish();
+    const g = target(t);
+    const hot = flashing(t);
+    pctx.clearRect(0, 0, pcv.width, pcv.height);
+    pctx.beginPath(); pctx.arc(g.x, g.y, hot ? 34 : 26, 0, 7);
+    pctx.strokeStyle = hot ? '#f5d76e' : '#7dd3fc'; pctx.lineWidth = hot ? 5 : 3; pctx.stroke();
+    pctx.beginPath(); pctx.arc(g.x, g.y, 4, 0, 7); pctx.fillStyle = hot ? '#f5d76e' : '#7dd3fc'; pctx.fill();
+    if (px !== null) {
+      pctx.beginPath(); pctx.arc(px, py, 8, 0, 7); pctx.fillStyle = 'rgba(232,236,244,.85)'; pctx.fill();
+      samples.push({ t: Math.round(t), x: +(px / pcv.width).toFixed(4), y: +(py / pcv.height).toFixed(4) });
+    }
+    requestAnimationFrame(frame);
+  }
+  async function finish() {
+    pcv.removeEventListener('pointermove', onMove);
+    pcv.removeEventListener('touchmove', onMove);
+    pcv.removeEventListener('pointerdown', onClick);
+    window.removeEventListener('keydown', keyH);
+    const res = await post('/api/challenge/submit', { session: r.body.session, samples, clicks, env: ENV });
+    report(res);
+  }
+  requestAnimationFrame(frame);
+});

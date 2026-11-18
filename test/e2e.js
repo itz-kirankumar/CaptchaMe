@@ -26,7 +26,7 @@ async function get(path, headers = {}) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function wallClockWait(type, P) {
-  if (type === 'ring') return 0.75 * P.durationMs;
+  if (type === 'ring' || type === 'pulse') return 0.75 * P.durationMs;
   if (type === 'reflex') return 0.75 * P.totalMs;
   if (type === 'beat') return 0.75 * (P.beats[P.beats.length - 1] + 800);
   if (type === 'voice') return 3100;
@@ -55,6 +55,8 @@ async function runChallenge(type, payloadFn, wait = true) {
     ['voice', P => actors.humanVoice(P.words, 55)],
     ['reflex', P => ({ clicks: actors.humanReflex(P.rounds, 21) })],
     ['reflex', P => ({ clicks: actors.humanReflex(P.rounds, 87) })],
+    ['pulse', P => actors.humanPulse(P, 31)],
+    ['pulse', P => actors.humanPulse(P, 77)],
   ]) {
     const r = await runChallenge(type, fn);
     check(`human ${type} passes`, r.sub && r.sub.result === 'pass', JSON.stringify(r.sub));
@@ -115,6 +117,23 @@ async function runChallenge(type, payloadFn, wait = true) {
     const r = await post('/api/challenge/submit', { session: start.body.session, taps, env: { webdriver: true } });
     check('webdriver env fails', r.body && r.body.result === 'fail');
     check('webdriver flagged', r.body && r.body.flags.some(f => /automation control/.test(f)), JSON.stringify(r.body && r.body.flags));
+  }
+  {
+    const r = await runChallenge('pulse', P => actors.agentPulse(P), false);
+    check('step agent fails dual-task', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    // the honest hard case: waits the full time, human-shaped samples.
+    // DOCUMENTED residual gap: a dedicated simulator passes the challenge;
+    // wall clock forces real time per attempt and the ledger caps the prize.
+    const r = await runChallenge('pulse', P => actors.playbackPulse(P), true);
+    console.log('  INFO wait-and-playback pulse result:', r.sub && r.sub.result, 'score', r.sub && r.sub.score, JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    // TTS pipeline with jitter: DOCUMENTED residual gap - it passes the voice
+    // challenge itself; the ledger cap is the designed backstop
+    const r = await runChallenge('voice', P => actors.ttsJitterVoice(P.words, 7), true);
+    console.log('  INFO tts+jitter voice result:', r.sub && r.sub.result, 'score', r.sub && r.sub.score);
   }
   {
     // replay: answer a session, then answer it again

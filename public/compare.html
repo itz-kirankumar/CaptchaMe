@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Why existing captchas fail</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Every captcha on the solver market fails the same way</h1>
+<p class="sub">They all ask "can you solve this puzzle?" and puzzle-solving is openly for sale. We ask a different question: "are you a live person, right now?"</p>
+
+<div class="card">
+<p>2Captcha, a solver service anyone can sign up for, lists demo pages for all the captcha types below and openly sells solving for every one of them. These prices and speeds are from <b>2captcha.com/pricing</b> and the demo list at <b>2captcha.com/demo</b>, read on Nov 18, 2026. Prices are per 1,000 solves.</p>
+<table>
+<tr><th>Captcha type</th><th>Price per 1,000 solves</th><th>Solving speed</th></tr>
+<tr><td>reCAPTCHA v2 (all variants)</td><td>&euro;0.99 - &euro;2.80</td><td>2-3 sec</td></tr>
+<tr><td>reCAPTCHA v2 Enterprise</td><td>&euro;0.99 - &euro;2.80</td><td>1 sec</td></tr>
+<tr><td>reCAPTCHA v3 (score &le; 0.3)</td><td>&euro;1.40</td><td>2 sec</td></tr>
+<tr><td>reCAPTCHA v3 (score &gt; 0.3)</td><td>&euro;2.80</td><td>2 sec</td></tr>
+<tr><td>Cloudflare Turnstile</td><td>&euro;1.40</td><td>1 sec</td></tr>
+<tr><td>GeeTest v3 / v4</td><td>&euro;2.80</td><td>3 sec</td></tr>
+<tr><td>Normal / image captcha</td><td>&euro;0.50 - &euro;1.00</td><td>1-2 sec</td></tr>
+<tr><td>Text / math captcha</td><td>&euro;0.50 - &euro;1.00</td><td>3-5 sec</td></tr>
+<tr><td>Click captcha</td><td>&euro;1.10</td><td>10 sec</td></tr>
+<tr><td>Rotate captcha</td><td>&euro;0.45</td><td>10 sec</td></tr>
+<tr><td>Audio captcha</td><td>&euro;0.45</td><td>6 sec</td></tr>
+<tr><td>MTCaptcha</td><td>&euro;1.40</td><td>5 sec</td></tr>
+<tr><td>Lemin captcha</td><td>&euro;1.40</td><td>19 sec</td></tr>
+<tr><td>Solve Media</td><td>demo'd and offered on their site</td><td>-</td></tr>
+<tr><td>KeyCAPTCHA</td><td>&euro;2.80</td><td>30 sec</td></tr>
+</table>
+<p class="note">Audio captcha, the path blind users depend on, is the cheapest row on the menu: &euro;0.45 per 1,000. Free browser add-ons like Buster exploit the same audio path with speech recognition at no cost at all.</p>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">Why they cannot be fixed</h2>
+<p>Every type above produces a <b>token</b>: solve once, hand the token over, done. A token is portable, so a farm of paid clickers or a vision model can mint it anywhere and replay it anywhere. Harder puzzles only raise the farm's price by fractions of a cent. That is the whole market's failure mode: they test knowledge or perception, both of which are for sale.</p>
+</div>
+
+<div class="card">
+<h2 style="margin-top:0">What we do instead</h2>
+<p><b>1. Presence, not puzzles.</b> Our checks must be performed live: follow a target that teleports at random moments, click flashes inside a sub-second window, tap a beat. The server stamps each challenge's clock and rejects any answer that did not take real time. There is no token to sell because the performance itself is the proof.</p>
+<p><b>2. Nothing is replayable or pre-trainable.</b> Every session gets fresh random paths, dart times, flash gaps and words, signed and single-use. A captured answer is worthless twice.</p>
+<p><b>3. A voice path with dignity.</b> Disabled users speak four words at their own pace. Untimed, scored on vocal timing, not speed.</p>
+<p><b>4. A fair-share ledger behind the door.</b> No check is unbreakable forever, so a passed check buys a capped allowance, not unlimited access. Beating the captcha earns $2 of API calls, not the keys to the site. Honest AI agents skip the puzzle entirely: they declare with a signed key and get their own budget.</p>
+<p class="note" style="margin:0">Honest scope: we do not claim these checks can never be beaten. We claim they cannot be beaten cheaply, at scale, by an API call today - and that when they are beaten, the ledger bounds what that buys.</p>
+</div>
+<p class="note"><a style="color:var(--accent)" href="/">Back to CaptchaMe</a></p>
+</main></body></html>

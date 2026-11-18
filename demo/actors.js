@@ -115,4 +115,37 @@ function adaptiveReflex(rounds, seed = 8) {
   return rounds.map(r => Math.round(r.at + 160 + rng() * 300));
 }
 
-module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice, humanReflex, scriptReflex, agentReflex, adaptiveRing, adaptiveReflex };
+// Pulse (dual-task) actors
+function humanPulse(P, seed = 6) {
+  const rng = mulberry(seed);
+  const clicks = P.flashes.map(f => Math.round(f + 190 + rng() * 270));
+  return { samples: humanRing(P, seed), clicks };
+}
+// step agent: reactions take 1.3s (miss the window) and tracking collapses after each flash
+function agentPulse(P, seed = 6) {
+  const samples = agentRing(P);
+  for (const s of samples) {
+    for (const f of P.flashes) {
+      if (s.t >= f && s.t <= f + 600) { s.x = +(s.x + 0.3).toFixed(4); s.y = +(s.y - 0.25).toFixed(4); }
+    }
+  }
+  return { samples, clicks: P.flashes.map(f => f + 1300) };
+}
+// wait-and-playback: full-duration, human-shaped samples, but channels
+// synthesized independently: identical 210 ms reactions every flash
+function playbackPulse(P, seed = 6) {
+  return { samples: adaptiveRing(P, seed), clicks: P.flashes.map(f => f + 210) };
+}
+// TTS pipeline with added jitter: natural onset times, perfect transcript
+function ttsJitterVoice(words, seed = 7) {
+  const rng = mulberry(seed);
+  let t = 0;
+  const wordTimings = words.map((w, i) => {
+    const promptStartMs = t;
+    t += 1500 + rng() * 900;
+    return { word: w, promptStartMs, onsetMs: Math.round(promptStartMs + 420 + rng() * 800) };
+  });
+  return { wordTimings, transcript: words.join(' ') };
+}
+
+module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice, humanReflex, scriptReflex, agentReflex, adaptiveRing, adaptiveReflex, humanPulse, agentPulse, playbackPulse, ttsJitterVoice };
