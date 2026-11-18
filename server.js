@@ -26,6 +26,7 @@ const passive = require('./lib/passive');
 const webbotauth = require('./lib/webbotauth');
 const audit = require('./lib/audit');
 const traffic = require('./lib/traffic');
+const ag = require('./lib/abuseguard'); // second layer; a no-op unless ABUSEGUARD_URL/KEY/SALT are set
 
 const PORT = process.env.PORT || 3000;
 // No built-in admin key. Without POP_ADMIN_KEY each run makes its own and
@@ -88,6 +89,15 @@ const netMeta = req => ({ ua: req.headers['user-agent'] || '', acceptLanguage: r
 function netPrefix(ip) {
   const v4 = /(\d+\.\d+\.\d+)\.\d+$/.exec(String(ip));
   return v4 ? v4[1] : String(ip).split(':').slice(0, 3).join(':');
+}
+// A person just passed a check. Tell the second layer who they are linked to (same network, same
+// browser id if there is one), that the live check passed, and that a new session exists.
+async function agPassed(req, actorId) {
+  if (!ag.enabled) return;
+  try {
+    const vid = cookies(req).cm_vid;
+    await Promise.all([ag.signup(actorId), ag.link(actorId, 'ip', netPrefix(clientIp(req))), vid ? ag.link(actorId, 'device', vid) : null, ag.verify(actorId, 'human_check', 'pass')]);
+  } catch { /* the second layer never breaks the first */ }
 }
 // How long after it starts a challenge can still be answered: its own length
 // plus a short grace. Solver queues that relay a task take 10-40 s.
@@ -353,6 +363,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
     const pass = tokens.mint(actorId, 'human', reqBind(req), { form: sess.form || body.form_hash, via: sess.type });
     res.setHeader('Set-Cookie', ['pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax', 'cm_pass=1; Path=/; SameSite=Lax; Max-Age=3600']);
     await bump('humans');
+    await agPassed(req, actorId);
     await logEvent('pass', `Human verified via ${sess.type} (score ${result.score})`, { lane: sess.type, score: result.score, attacker });
     send(res, 200, { result: 'pass', type: sess.type, score: result.score, flags: result.flags, detail: result.detail, pass_token: pass, actor: actorId, budget_added: ledger.DEFAULTS.human });
   } else {
@@ -545,6 +556,7 @@ route('GET', '/api/catalog/item/:id', async (req, res, params) => {
   if (id.startsWith('trap-')) {
     const v = shield.assess(shieldMeta(req, { honeypot: true }));
     await logEvent('trap', 'Hidden listing link requested: only a program reading the raw page links there', { lane: 'shield', actor: v.key, attacker: attackerOf(req) });
+    if (ag.enabled) await ag.trapHit(cookies(req).pop_actor || 'anon:' + clientIp(req) + '|' + (req.headers['user-agent'] || ''), '/api/catalog/item/' + id, req.headers['user-agent']);
     await bump('botsCaught');
     return shieldRespond(req, res, v, 1, attackerOf(req));
   }
@@ -592,6 +604,7 @@ async function mintSilent(req, via, form, attacker, note) {
   await bump('checks'); await bump('humans');
   await arena('captchame:' + via, attacker, true);
   await logEvent('pass', note, { lane: via, attacker });
+  await agPassed(req, actorId);
   return tokens.mint(actorId, 'human', reqBind(req), { form, via });
 }
 route('POST', '/api/pass/silent', async (req, res) => {
@@ -745,7 +758,7 @@ route('GET', '/api/agent/whoami', async (req, res) => {
 route('GET', '/api/protected/quote', async (req, res) => {
   const jar = cookies(req);
   const auth = req.headers.authorization || '';
-  let actorId, kind;
+  let actorId, kind, passAgeS = null, via = null;
   const wba = await webbotauth.verifyRequest(req);
   if (wba && !wba.ok) return send(res, 401, { error: 'bad_agent_signature', reason: 'Web Bot Auth signature did not verify: ' + wba.reason });
   if (wba && wba.ok) {
@@ -757,7 +770,7 @@ route('GET', '/api/protected/quote', async (req, res) => {
     // tops up the actor. After that the cookie-backed actor id carries the budget.
     const v = tokens.verify(auth.slice(7), { consume: false, bind: reqBind(req) });
     if (!v.ok) return send(res, 401, { error: 'invalid_token', reason: v.reason });
-    actorId = v.actor; kind = v.kind;
+    actorId = v.actor; kind = v.kind; passAgeS = v.ageS; via = v.via;
     await ledger.ensureActor(actorId, kind === 'agent' ? 'agent' : 'anonymous');
   } else if (jar.pop_actor) {
     actorId = jar.pop_actor.startsWith('human:') || jar.pop_actor.startsWith('agent:') ? jar.pop_actor : 'human:' + jar.pop_actor;
@@ -769,11 +782,31 @@ route('GET', '/api/protected/quote', async (req, res) => {
     kind = 'anon';
     res.setHeader('Set-Cookie', 'pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax');
   }
+  // Layer 2 (abuseguard), when configured: one decision per person across every account and key linked to
+  // them. In shadow mode (the default) the verdict is recorded and compared, never enforced. Fails open.
+  let verdict = null;
+  if (ag.enabled) {
+    const rec = await ledger.getActor(actorId);
+    const plan = wba && wba.ok ? 'agent' : rec && rec.kind === 'human' ? 'human' : rec && (rec.kind === 'agent' || rec.kind === 'verified') ? 'agent' : 'anonymous';
+    await Promise.all([ag.link(actorId, 'ip', netPrefix(clientIp(req))), jar.cm_vid ? ag.link(actorId, 'device', jar.cm_vid) : null]);
+    verdict = await ag.assess({
+      actor: actorId, plan, path: '/api/protected/quote', ua: req.headers['user-agent'],
+      signals: ag.signalsFor({ kind: wba && wba.ok ? 'agent' : plan === 'human' ? 'human' : kind, via, passAgeS: wba && wba.ok ? 0 : passAgeS, wbaAgent: wba && wba.ok ? wba.agent : null }),
+    });
+    const out = ag.toHttp(verdict, actorId);
+    if (out) {
+      await logEvent('blocked', `abuseguard ${verdict.decision}: ${actorId.slice(0, 18)} (${(verdict.reasons || []).slice(0, 3).join(', ')})`, { actor: actorId, lane: 'abuseguard' });
+      return send(res, out.status, out.body, out.headers);
+    }
+    if (verdict && verdict.decision_id) res.setHeader('AG-Decision', `${verdict.decision}; enforced=${!!verdict.enforced}`);
+  }
   const charge = await ledger.spend(actorId, ledger.COST_PER_CALL);
+  if (verdict) ag.compare(verdict, !charge.ok);
   if (!charge.ok) {
     await logEvent('blocked', `Fair-share cap: ${actorId.slice(0, 18)} blocked (${charge.body.error})`, { actor: actorId });
-    return send(res, charge.status, charge.body);
+    return send(res, charge.status, { ...charge.body, ...(verdict && verdict.decision_id ? { decision_id: verdict.decision_id } : {}) });
   }
+  await ag.usage(actorId, ledger.COST_PER_CALL);
   const [s, board] = await Promise.all([store.stats(), store.arenaTable()]);
   const top = board.sort((a, b) => (b.pass + b.fail) - (a.pass + a.fail)).slice(0, 10).map(r => ({ format: r.format, attacker: r.attacker, pass: r.pass, fail: r.fail }));
   await logEvent('call', `API call served to ${actorId.slice(0, 18)} ($${ledger.COST_PER_CALL.toFixed(2)})`, { actor: actorId });
@@ -825,6 +858,7 @@ route('POST', '/api/appeal', async (req, res) => {
   const body = await readBody(req);
   if (!body.actor || !body.message) return send(res, 400, { error: 'bad_request', reason: 'actor and message are required.' });
   const ap = await ledger.fileAppeal(body.actor, body.message);
+  await ag.fileAppeal(String(body.actor), ap.id, body.message, typeof body.decision_id === 'string' ? body.decision_id.slice(0, 80) : null); // layer 2 keeps its own appeal record
   await logEvent('appeal', `Appeal filed by ${String(body.actor).slice(0, 18)}`, { actor: body.actor });
   send(res, 200, { ok: true, appeal_id: ap.id, reason: 'Appeal received. A human reviews every one; you will never be silently blocked.' });
 });
@@ -850,6 +884,7 @@ route('POST', '/api/admin/appeal/:id', async (req, res, params) => {
   const body = await readBody(req);
   const ap = await ledger.resolveAppeal(+params.id, body.action);
   if (!ap) return send(res, 404, { error: 'not_found' });
+  await ag.resolveAppeal(ap.id, ap.status === 'approved'); // CaptchaMe's own +$1 grant (ledger.resolveAppeal) is unchanged
   await logEvent('appeal', `Appeal #${ap.id} ${ap.status} (${ap.actorId.slice(0, 18)})`, {});
   send(res, 200, { ok: true, appeal: ap });
 });
@@ -865,10 +900,32 @@ route('POST', '/api/admin/reset', async (req, res) => {
   send(res, 200, { ok: true, reason: 'Cleared: ledger, events, appeals, arena scores, stats, shield state and the live access log. Early-access requests were kept.' });
 });
 
+// ---------- abuseguard: signed events in, status out ----------
+// abuseguard POSTs subject.flagged / appeal.filed / appeal.resolved here. Each message is signed
+// (t=<unix>,v1=<hmac>) with the secret returned once by PUT /v1/webhook-endpoints; unsigned or stale ones are refused.
+route('POST', '/api/abuseguard-events', async (req, res) => {
+  const secret = process.env.ABUSEGUARD_WEBHOOK_SECRET || '';
+  let raw;
+  try { raw = await readRaw(req, 100000); } catch (e) { return send(res, 413, { error: 'too_large' }); }
+  if (!secret || !ag.verifyWebhook(raw, req.headers['ag-signature'] || req.headers['x-abuseguard-signature'], secret)) return send(res, 401, { error: 'bad_signature' });
+  let ev = {}; try { ev = JSON.parse(raw); } catch { return send(res, 400, { error: 'bad_json' }); }
+  const type = String(ev.type || ev.event || 'event').slice(0, 40);
+  const d = ev.data || ev;
+  await logEvent('abuseguard', `abuseguard ${type}` + (d.outcome ? ' (' + d.outcome + ')' : '') + (Array.isArray(d.reasons) ? ': ' + d.reasons.slice(0, 3).join(', ') : ''), { lane: 'abuseguard' });
+  ag.noteWebhook();
+  await bump('abuseguardEvents');
+  send(res, 200, { ok: true });
+});
+route('GET', '/api/admin/abuseguard', async (req, res) => {
+  if (!adminOK(req)) return send(res, 403, { error: 'forbidden' });
+  send(res, 200, ag.status());
+});
+
 // ---------- honeypot trap (invisible to people, visible to DOM-reading agents) ----------
 const trapHandler = async (req, res) => {
   await bump('botsCaught');
   await arena('trap-link', attackerOf(req), false);
+  if (ag.enabled) await ag.trapHit(cookies(req).pop_actor || 'anon:' + clientIp(req) + '|' + (req.headers['user-agent'] || ''), '/trap', req.headers['user-agent']);
   await logEvent('trap', 'Trap link followed: only something reading the raw DOM would see it', { lane: 'trap', attacker: attackerOf(req) });
   send(res, 200, '<!doctype html><title>Trap</title><body style="background:#0b0e14;color:#e8ecf4;font-family:sans-serif;padding:40px">This link is invisible to people and marked hidden from assistive tech. Only a program reading the raw page could follow it. This visit has been logged as automated traffic.</body>', { 'Content-Type': 'text/html' });
 };

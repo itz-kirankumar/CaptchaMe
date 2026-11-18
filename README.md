@@ -67,6 +67,15 @@ Solver services beat classic captchas two ways: ship the content (image, audio, 
 
 Without keys the arena uses each vendor's public test keys, which always pass, and says so on the card. For a real comparison set `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY`, `HCAPTCHA_SITE_KEY`/`HCAPTCHA_SECRET_KEY` and `RECAPTCHA_SITE_KEY`/`RECAPTCHA_SECRET_KEY`.
 
+## The second layer: abuseguard (optional)
+
+CaptchaMe proves a live person is there. It cannot see that twelve "different" visitors are one person who
+keeps taking the free tier. [abuseguard](docs/ABUSEGUARD.md) sits behind it and caps dollars **per person
+across every account, key and session linked to them**, with named reasons, appeals and signed alerts.
+Set `ABUSEGUARD_URL`, `ABUSEGUARD_KEY` and `ABUSEGUARD_SALT` to turn it on; it starts in shadow mode and
+fails open, and with the variables unset nothing changes. Status and the shadow comparison:
+`GET /api/admin/abuseguard`. Test: `npm run test:abuseguard`. Full guide: [docs/ABUSEGUARD.md](docs/ABUSEGUARD.md).
+
 ## Vercel
 
 The repo deploys to Vercel as-is: `api/[...all].js` handles every `/api/*`
