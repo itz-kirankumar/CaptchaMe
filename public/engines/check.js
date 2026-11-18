@@ -25,6 +25,7 @@
     reveal();
   }
   function reveal() { try { out.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch { /* old browsers */ } }
+  getNonce(); // fetched while the page loads, so Start does not wait on it
   async function post(url, body) {
     if (url === '/api/challenge/start') { loading('Getting a fresh check from the server…'); const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
     if (url === '/api/challenge/submit') { loading('Judging your response…'); if (FORM) body = { ...body, form_hash: FORM }; }
@@ -98,7 +99,7 @@
           }
           if (r.body && r.body.done) break;
         } catch { /* keep polling */ }
-        await new Promise(res => setTimeout(res, 150));
+        await new Promise(res => setTimeout(res, 100));
       }
     })();
     return { cues, stop() { stop = true; } };
@@ -293,7 +294,7 @@
       window.dispatchEvent(new CustomEvent('cm-tab', { detail: s.type }));
       const note = document.getElementById('autoNote');
       if (note) note.textContent = 'The server picked: ' + s.type + '. Go!';
-      await new Promise(r => setTimeout(r, 450));
+      await new Promise(r => setTimeout(r, 250));
     }
     try { await RUN[s.type](s); } catch (e) { busy(false); show('Something went wrong: ' + e.message); }
   }));

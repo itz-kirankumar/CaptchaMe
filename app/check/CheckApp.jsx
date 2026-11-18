@@ -74,7 +74,7 @@ export default function CheckApp() {
       </div>
 
       <div className={panel('ring')}>
-        <p className="how">Keep your pointer or finger on the moving ring for 7 seconds. It jumps twice: catch it again.</p>
+        <p className="how">Keep your pointer or finger on the moving ring for under 5 seconds. It jumps twice: catch it again.</p>
         <canvas id="field" width="800" height="420" aria-label="Moving ring to follow"></canvas>
         <div className="startrow"><button data-start="ring">Start</button></div>
       </div>

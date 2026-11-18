@@ -173,22 +173,22 @@ const CLASH_COLORS = ['RED', 'BLUE'];
 function makeParams(type) {
   let params;
   if (type === 'clash') {
-    const kinds = [true, true, true, true, false, false, false, false].sort(() => Math.random() - 0.5);
-    let t = 1300;
+    const kinds = [true, true, true, false, false, false].sort(() => Math.random() - 0.5);
+    let t = 900;
     const trials = kinds.map(cong => {
       const ink = CLASH_COLORS[Math.random() < 0.5 ? 0 : 1];
       const word = cong ? ink : CLASH_COLORS.find(c => c !== ink);
       const tr = { at: Math.round(t), word, ink };
-      t += 1450 + Math.random() * 400;
+      t += 1150 + Math.random() * 300;
       return tr;
     });
-    return { colors: CLASH_COLORS, trials, windowMs: 1300, totalMs: Math.round(trials[trials.length - 1].at + 1700) };
+    return { colors: CLASH_COLORS, trials, windowMs: 1300, totalMs: Math.round(trials[trials.length - 1].at + 1400) };
   }
   if (type === 'targets') {
     const W = 800, H = 450, radii = [16, 24, 34, 48];
     const targets = [];
     let prev = { x: W / 2, y: H / 2 };
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 7; i++) {
       const r = radii[Math.floor(Math.random() * radii.length)];
       let p, tries = 0;
       do {
@@ -262,31 +262,31 @@ route('POST', '/api/challenge/start', async (req, res) => {
       ax: 0.22 + Math.random() * 0.12, ay: 0.22 + Math.random() * 0.12,
       fx: 0.12 + Math.random() * 0.10, fy: 0.12 + Math.random() * 0.10,
       px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
-      durationMs: 7000,
+      durationMs: 4600,
       reacquireMs: 1200,
-      darts: [2200 + Math.random() * 800, 4400 + Math.random() * 800].map(at => ({
+      darts: [1300 + Math.random() * 500, 2700 + Math.random() * 500].map(at => ({
         at: Math.round(at),
         px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
       })),
     };
   } else if (type === 'beat') {
-    const beats = []; let t = 1500;
-    for (let i = 0; i < 12; i++) { beats.push(Math.round(t)); t += 550 + Math.random() * 200; }
+    const beats = []; let t = 1000;
+    for (let i = 0; i < 9; i++) { beats.push(Math.round(t)); t += 550 + Math.random() * 200; }
     params = { beats };
   } else if (type === 'pulse') {
     const flashes = [];
-    let ft = 1400 + Math.random() * 800;
-    while (ft < 6200) { flashes.push(Math.round(ft)); ft += 1500 + Math.random() * 1500; }
+    let ft = 1000 + Math.random() * 500;
+    while (ft < 4300) { flashes.push(Math.round(ft)); ft += 1100 + Math.random() * 700; }
     params = {
       ax: 0.26 + Math.random() * 0.12, ay: 0.22 + Math.random() * 0.12,
       fx: 0.07 + Math.random() * 0.08, fy: 0.05 + Math.random() * 0.06,
       px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
-      durationMs: 7000, flashes, flashWindowMs: 800,
+      durationMs: 5000, flashes, flashWindowMs: 800,
     };
   } else if (type === 'reflex') {
-    const rounds = []; let t = 1200;
-    for (let i = 0; i < 5; i++) { rounds.push({ at: Math.round(t), windowMs: 900 }); t += 1400 + Math.random() * 1900; }
-    params = { rounds, totalMs: Math.round(t + 800) };
+    const rounds = []; let t = 900;
+    for (let i = 0; i < 5; i++) { rounds.push({ at: Math.round(t), windowMs: 900 }); t += 1000 + Math.random() * 900; }
+    params = { rounds, totalMs: Math.round(t + 500) };
   } else if (type === 'voice') {
     const words = [...VOICE_WORDS].sort(() => Math.random() - 0.5).slice(0, 4);
     const cadence = words.map(() => 1400 + Math.round(Math.random() * 900)); // ms between word prompts

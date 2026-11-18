@@ -4,7 +4,7 @@ import ScriptEngine from '../components/ScriptEngine';
 export default function Home() {
   return (<>
     <section className="th-hero">
-      <svg className="th-curves" id="thCurves" aria-hidden="true" preserveAspectRatio="xMidYMid slice"></svg>
+      <canvas className="th-curves" id="thCurves" aria-hidden="true"></canvas>
       <p className="th-tag"><i></i>Live demo &middot; every number comes from the running backend</p>
       <h1 className="th-h1">Know who&apos;s visiting.<em>Cap what they take.</em></h1>
       <p className="th-lede">Bypass tools are sold openly, so a solved puzzle proves nothing. CaptchaMe checks that a live person is there. A second layer merges every request into one identity, names the bypass family, and shows in raw text exactly where it was stopped.</p>

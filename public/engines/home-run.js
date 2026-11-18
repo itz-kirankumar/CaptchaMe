@@ -17,29 +17,89 @@
     rv.forEach(el => io.observe(el));
   } else rv.forEach(el => el.classList.add('in'));
 
-  // ---------- hero curves with travelling dots ----------
-  const svg = $('thCurves');
-  function curves() {
-    if (!svg) return;
-    const box = svg.parentElement.getBoundingClientRect();
-    const W = Math.max(900, window.innerWidth), H = Math.max(520, box.height);
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-    const cy = H * 0.62, cx = W / 2, n = 9;
-    let out = '';
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < n; i++) {
-        const k = (i - (n - 1) / 2) / ((n - 1) / 2);
-        const x0 = side < 0 ? -20 : W + 20, y0 = cy + k * H * 0.55 - H * 0.12;
-        const x1 = cx + side * 480, y1 = cy + k * 14;
-        const c1x = x0 + (x1 - x0) * 0.55, c2x = x0 + (x1 - x0) * 0.8;
-        const id = 'cv' + (side < 0 ? 'l' : 'r') + i;
-        out += '<path id="' + id + '" d="M' + x0 + ' ' + y0 + ' C' + c1x + ' ' + y0 + ' ' + c2x + ' ' + y1 + ' ' + x1 + ' ' + y1 + '" style="animation-duration:' + (22 + i * 2) + 's"/>';
-        if (!reduce) { const vi = i % 4 === 1; out += '<circle class="' + (vi ? 'vi' : 'sq') + '" r="' + (vi ? 3.2 : 2.4) + '"><animateMotion dur="' + (9 + (i * 1.7) % 7) + 's" begin="-' + (i * 1.3) + 's" repeatCount="indefinite"><mpath href="#' + id + '"/></animateMotion></circle>'; }
+  // ---------- hero: live mini-checks on both sides ----------
+  // Each tile is a tiny ring check playing on a loop: the ring jumps, a person
+  // swoops after it with a visible lag, a bot snaps onto it in zero ms, a
+  // relay arrives seconds late. Then the verdict stamps and a new actor plays.
+  const cv = $('thCurves');
+  if (cv && cv.getContext) {
+    const ctx = cv.getContext('2d');
+    const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    let C = {};
+    const readColors = () => { C = { mark: css('--mark') || css('--brand'), human: css('--human'), bot: css('--bot'), warn: css('--warn'), line: css('--line-2'), muted: css('--muted'), surface: css('--surface'), text: css('--text') }; };
+    readColors(); window.addEventListener('cm-theme', () => setTimeout(readColors, 30));
+    const KINDS = [
+      { id: 'human', label: 'HUMAN', col: 'human', lag: 190, swoop: 0.16, jitter: 1, ok: true },
+      { id: 'bot', label: 'BOT', col: 'bot', lag: 0, swoop: 1, jitter: 0, ok: false, why: '0 ms lag' },
+      { id: 'human', label: 'HUMAN', col: 'human', lag: 240, swoop: 0.13, jitter: 1.3, ok: true },
+      { id: 'relay', label: 'SOLVER', col: 'warn', lag: 900, swoop: 0.5, jitter: 0, ok: false, why: 'relayed late' },
+      { id: 'agent', label: 'AGENT', col: 'bot', lag: 1400, swoop: 0.08, jitter: 0, ok: false, why: 'look-think-act' },
+    ];
+    const CYCLE = 2600, DART = 1050;
+    let tiles = [], W = 0, H = 0, dpr = 1;
+    function layout() {
+      const box = cv.parentElement.getBoundingClientRect();
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = Math.max(480, box.height);
+      cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      tiles = [];
+      const side = Math.min(190, (W - 760) / 2 - 24);
+      if (side < 110) return; // narrow screens: the headline needs the room
+      const rows = 3, gap = 18, th = Math.min(side * 0.82, (H * 0.86 - gap * (rows - 1)) / rows), top = (H - (th * rows + gap * (rows - 1))) / 2;
+      for (const [x, dir] of [[24, 1], [W - 24 - side, -1]]) {
+        for (let r = 0; r < rows; r++) tiles.push(newTile(x + dir * (r % 2 ? 14 : 0), top + r * (th + gap), side, th, r * 870 + (dir > 0 ? 0 : 430)));
       }
     }
-    svg.innerHTML = out;
+    function newTile(x, y, w, h, offset) {
+      return { x, y, w, h, t0: performance.now() - offset, kind: KINDS[Math.floor(Math.random() * KINDS.length)], fx: 0.5 + Math.random() * 0.35, fy: 0.7 + Math.random() * 0.4, p: Math.random() * 6, q: Math.random() * 6, jp: Math.random() * 6, cx: null, cy: null, trail: [] };
+    }
+    const ringAt = (t, s, ms) => { const j = ms >= DART ? s.jp : 0, k = ms / 1000; return { x: 0.5 + 0.32 * Math.sin(2 * Math.PI * s.fx * k + s.p + j), y: 0.5 + 0.28 * Math.sin(2 * Math.PI * s.fy * k + s.q + j * 1.7) }; };
+    function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+    function drawTile(s, now) {
+      let ms = now - s.t0;
+      if (ms > CYCLE + 700) { Object.assign(s, newTile(s.x, s.y, s.w, s.h, 0)); ms = 0; }
+      const K = s.kind, pad = 12, fw = s.w - pad * 2, fh = s.h - pad * 2 - 16;
+      ctx.globalAlpha = 0.9; rr(s.x, s.y, s.w, s.h, 14); ctx.fillStyle = C.surface; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1;
+      // header: format name + live timer
+      ctx.font = '600 10px "JetBrains Mono", monospace'; ctx.textBaseline = 'top'; ctx.fillStyle = C.muted;
+      ctx.fillText('FOLLOW THE RING', s.x + pad, s.y + 9);
+      ctx.textAlign = 'right'; ctx.fillText((Math.min(ms, CYCLE) / 1000).toFixed(1) + 's', s.x + s.w - pad, s.y + 9); ctx.textAlign = 'left';
+      const ox = s.x + pad, oy = s.y + pad + 14, run = Math.min(ms, CYCLE);
+      const g = ringAt(0, s, run), gx = ox + g.x * fw, gy = oy + g.y * fh;
+      // ring (flashes on the jump)
+      const jumped = run >= DART && run < DART + 160;
+      ctx.beginPath(); ctx.arc(gx, gy, jumped ? 13 : 10, 0, 7); ctx.strokeStyle = C.mark; ctx.lineWidth = jumped ? 3 : 2.2; ctx.stroke();
+      // follower
+      const lagged = ringAt(0, s, Math.max(0, run - K.lag)), tx = ox + lagged.x * fw, ty = oy + lagged.y * fh;
+      if (s.cx === null) { s.cx = tx; s.cy = ty; }
+      if (K.id === 'agent') { if (Math.floor(run / 700) !== s.step) { s.step = Math.floor(run / 700); s.ax = tx; s.ay = ty; } s.cx += ((s.ax ?? tx) - s.cx) * 0.06; s.cy += ((s.ay ?? ty) - s.cy) * 0.06; }
+      else if (K.id === 'bot') { s.cx = gx; s.cy = gy; }
+      else { s.cx += (tx - s.cx) * K.swoop + (Math.random() - 0.5) * K.jitter; s.cy += (ty - s.cy) * K.swoop + (Math.random() - 0.5) * K.jitter; }
+      if (ms <= CYCLE) { s.trail.push([s.cx, s.cy]); if (s.trail.length > 18) s.trail.shift(); }
+      if (s.trail.length > 1 && K.id !== 'bot') { ctx.beginPath(); s.trail.forEach(([a, b], i) => (i ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.strokeStyle = C[K.col]; ctx.globalAlpha = 0.45; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1; }
+      ctx.beginPath(); ctx.arc(s.cx, s.cy, 4.5, 0, 7); ctx.fillStyle = C[K.col]; ctx.fill();
+      // progress bar
+      ctx.fillStyle = C.line; ctx.fillRect(s.x + pad, s.y + s.h - 9, fw, 3);
+      ctx.fillStyle = C.mark; ctx.fillRect(s.x + pad, s.y + s.h - 9, fw * (run / CYCLE), 3);
+      // verdict stamp
+      if (ms > CYCLE) {
+        const k = Math.min(1, (ms - CYCLE) / 140), sc = 1.35 - 0.35 * k, label = K.ok ? K.label + ' ✓ ' + K.lag + ' ms' : K.label + ' ✗ ' + K.why;
+        ctx.save(); ctx.translate(s.x + s.w / 2, s.y + s.h / 2 + 4); ctx.rotate(-0.08); ctx.scale(sc, sc); ctx.globalAlpha = k;
+        ctx.font = '800 12px "JetBrains Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(label).width + 18; const col = K.ok ? C.human : (K.col === 'warn' ? C.warn : C.bot);
+        rr(-tw / 2, -13, tw, 26, 7); ctx.fillStyle = C.surface; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = col; ctx.fillText(label, 0, 1); ctx.restore();
+      }
+    }
+    let raf = 0, visible = true;
+    function frame(now) { ctx.clearRect(0, 0, W, H); for (const s of tiles) drawTile(s, now); if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame); }
+    const kick = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); };
+    layout(); kick();
+    let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { layout(); kick(); }, 150); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
+    if ('IntersectionObserver' in window) new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) kick(); }).observe(cv);
   }
-  curves(); let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(curves, 200); });
 
   // ---------- attackers ----------
   const sel = $('runBot'), sug = $('runSug');
