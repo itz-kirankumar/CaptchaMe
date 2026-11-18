@@ -18,7 +18,7 @@
   }
 
   const CLASSIC = [['text', 'Distorted text'], ['math', 'Math'], ['grid', 'Image grid'], ['slider', 'Slider'], ['rotate', 'Rotate'], ['click', 'Click in order'], ['checkbox', 'Bare checkbox'], ['pow', 'Proof of work']];
-  grid.innerHTML = CLASSIC.map(([t, name]) => '<div class="lr-card" data-type="' + t + '"><div class="lr-card-h"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new title="Load a new one">New</button></div><div class="body"></div><div class="lr-res"></div></div>').join('');
+  grid.innerHTML = CLASSIC.map(([t, name]) => '<div class="lr-card" data-type="' + t + '"><div class="lr-card-h"><b>' + name + '</b><span class="spacer"></span><button class="sm ghost" data-new title="Load a fresh puzzle" aria-label="Refresh this captcha">&#8635; Refresh</button></div><div class="body"></div><div class="lr-res"></div></div>').join('');
 
   function result(card, r) {
     const el = card.querySelector('.lr-res');
@@ -100,5 +100,24 @@
     this.textContent = t; this.disabled = false;
   });
   $('tryCmNew').addEventListener('click', () => { $('tryCm').src = '/check?embed=1&fresh=' + Date.now(); $('tryPass').textContent = ''; });
+  const FORMATS = [['Surprise me', 'auto'], ['Follow the ring', 'ring'], ['Colour clash', 'clash'], ['Targets', 'targets'], ['Catch the flash', 'reflex'], ['Follow + catch', 'pulse'], ['Tap the beat', 'beat']];
+  const frame = $('tryCm');
+  function decorate() {
+    let doc; try { doc = frame.contentDocument; } catch { return; }
+    if (!doc) return;
+    [...doc.querySelectorAll('button')].forEach(b => {
+      if (b.querySelector('.rf')) return;
+      const t = b.textContent.trim();
+      const f = FORMATS.find(x => t.startsWith(x[0]));
+      if (!f) return;
+      const r = doc.createElement('span');
+      r.className = 'rf'; r.setAttribute('role', 'button'); r.setAttribute('aria-label', 'Refresh ' + f[0]); r.title = 'Refresh ' + f[0]; r.textContent = '\u21BB';
+      r.style.cssText = 'margin-left:8px;padding:0 4px;border-radius:6px;opacity:.75;cursor:pointer;font-weight:700';
+      r.onmouseenter = () => { r.style.opacity = 1; }; r.onmouseleave = () => { r.style.opacity = .75; };
+      r.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); frame.src = '/check?embed=1&format=' + f[1] + '&fresh=' + Date.now(); $('tryPass').textContent = ''; });
+      b.appendChild(r);
+    });
+  }
+  frame.addEventListener('load', () => { decorate(); setTimeout(decorate, 400); });
   window.addEventListener('message', e => { if (e.data && e.data.type === 'captchame:pass') $('tryCmS').textContent = 'CaptchaMe: passed'; $('tryPass').textContent = 'CaptchaMe: passed (score ' + (e.data.score == null ? '?' : e.data.score) + ')'; });
 })();
