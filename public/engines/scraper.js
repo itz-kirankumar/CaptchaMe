@@ -23,6 +23,9 @@
   async function loadPage() {
     const res = await fetch('/api/catalog?page=' + page, { cache: 'no-store' });
     const body = await res.json().catch(() => ({}));
+    // Tell the shield this browser really loaded the page (its JS and assets).
+    // The server scores this observed beacon, not a caller-supplied flag.
+    fetch('/api/shield/beacon', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
     showMine(res, body);
     document.getElementById('pageNo').textContent = page;
     if (!res.ok) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">' + esc(body.reason || 'Blocked') + '</div>'; return; }

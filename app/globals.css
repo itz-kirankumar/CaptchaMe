@@ -168,6 +168,9 @@ section.block { margin-top: 96px; }
 .statband b { display: block; font: 700 28px var(--font-display); letter-spacing: -.02em; }
 .statband span { color: var(--muted); font-size: 13px; }
 @media (max-width: 860px) { .statband { grid-template-columns: repeat(2, 1fr); } .statband > div { border-bottom: 1px solid var(--line); } }
+.statband .statlive { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; padding: 22px 20px; border-right: 0; }
+.statband .statlive .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--human); animation: pulse-dot 1.6s infinite; flex: none; }
+.statband .statlive a { color: var(--human); }
 .breakers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 @media (max-width: 860px) { .breakers { grid-template-columns: repeat(2, 1fr); } }
 .breaker { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }

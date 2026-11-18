@@ -11,8 +11,28 @@
   const col = n => cmVar(n);
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
 
+  // Network RTT measured while the challenge runs. The server compares it
+  // with reaction lag: a remote human streaming a datacenter browser shows
+  // human-sized lag over a datacenter-sized round trip, and that contradicts.
+  let RTT = null, RTT_STARTED = false;
+  async function measureRtt() {
+    if (RTT_STARTED) return RTT;
+    RTT_STARTED = true;
+    try {
+      const ts = [];
+      for (let i = 0; i < 2; i++) { const t0 = performance.now(); await fetch('/api/ping', { cache: 'no-store' }); ts.push(performance.now() - t0); }
+      RTT = Math.round(Math.min.apply(null, ts));
+    } catch { RTT = null; }
+    return RTT;
+  }
+
   async function post(url, body) {
-    if (url === '/api/challenge/submit' && FORM) body = { ...body, form_hash: FORM };
+    if (url === '/api/challenge/start') measureRtt();
+    if (url === '/api/challenge/submit') {
+      if (FORM) body = { ...body, form_hash: FORM };
+      const rtt = await measureRtt();
+      if (rtt != null) body = { ...body, rtt_ms: rtt };
+    }
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { status: r.status, body: await r.json() };
   }

@@ -38,11 +38,20 @@
   requestAnimationFrame(frame);
 
   async function stats() {
-    if (!document.getElementById('statband')) return;
+    const band = document.getElementById('statband');
+    if (!band) return;
+    if (!band.dataset.orig) band.dataset.orig = band.innerHTML;
     try {
       const s = await (await fetch('/api/stats', { cache: 'no-store' })).json();
-      const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = Number(n || 0).toLocaleString(); };
-      set('st-checks', s.checks); set('st-humans', s.humans); set('st-bots', s.botsCaught); set('st-agents', s.agents); set('st-scrape', s.scrapersStopped);
+      if (!s.checks) {
+        // Fresh deployment, no traffic yet: say so honestly instead of showing dashes.
+        band.dataset.idle = '1';
+        band.innerHTML = '<div class="statlive"><span class="dot"></span><span>Live now. Counters start with the first visitor on this deployment - <a href="/check">run the live demo</a> to light them up.</span></div>';
+      } else {
+        if (band.dataset.idle) { band.innerHTML = band.dataset.orig; delete band.dataset.idle; }
+        const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = Number(n || 0).toLocaleString(); };
+        set('st-checks', s.checks); set('st-humans', s.humans); set('st-bots', s.botsCaught); set('st-agents', s.agents); set('st-scrape', s.scrapersStopped);
+      }
     } catch { /* offline */ }
     setTimeout(stats, 4000);
   }

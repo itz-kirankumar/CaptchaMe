@@ -328,6 +328,21 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   else if (sess.type === 'targets') result = scoring.scoreTargets(sess.params, body.clicks, body.samples, body.pointerType);
   else result = scoring.scoreVoice(sess.params.words, body.wordTimings, body.transcript);
 
+  // RTT measured by the browser while the challenge ran, compared with the
+  // reaction lag it showed. A streamed datacenter browser (solver browser
+  // APIs) shows full human-sized lag over a near-zero datacenter round trip:
+  // the two measurements contradict each other.
+  const rttMs = Number(body.rtt_ms);
+  if (Number.isFinite(rttMs) && rttMs >= 0) {
+    const lag = result.detail && Number(result.detail.lagMs);
+    if (rttMs <= 10 && Number.isFinite(lag) && lag > 350) {
+      extraHard.push('reaction lag of ' + Math.round(lag) + ' ms over a ' + rttMs + ' ms network: a remote person streaming a datacenter browser, not a local visit');
+    } else if (rttMs <= 2) {
+      result.score -= 15;
+      result.flags.push('network round trip of ' + rttMs + ' ms: this browser runs next to our server, not on a person\'s connection');
+    }
+  }
+
   if (tooFast) { result.score = Math.min(result.score, 10); result.flags.push('answered in ' + Math.round(elapsedMs) + ' ms for a challenge that runs ' + Math.round(minMs / 0.7) + ' ms: computed, not performed'); }
   if (webdriver) { result.score = Math.min(result.score, 10); result.flags.push('browser reports it is under automation control (navigator.webdriver)'); }
   if (extraHard.length) { result.score = Math.min(result.score, 10); result.flags.unshift(...extraHard); }
@@ -343,7 +358,7 @@ route('POST', '/api/challenge/submit', async (req, res) => {
     const rec = await ledger.ensureActor(actorId, 'anonymous');
     rec.kind = 'human';
     await ledger.grant(actorId, ledger.DEFAULTS.human, 'presence verified (+' + '$2.00)');
-    const pass = tokens.mint(actorId, 'human', reqBind(req), { form: sess.form || body.form_hash, via: sess.type });
+    const pass = tokens.mint(actorId, 'human', reqBind(req), { form: sess.form || body.form_hash, via: sess.type, rtt: Number.isFinite(rttMs) && rttMs >= 0 ? rttMs : undefined });
     res.setHeader('Set-Cookie', ['pop_actor=' + encodeURIComponent(actorId) + '; Path=/; SameSite=Lax', 'cm_pass=1; Path=/; SameSite=Lax; Max-Age=3600']);
     await bump('humans');
     await logEvent('pass', `Human verified via ${sess.type} (score ${result.score})`, { lane: sess.type, score: result.score, attacker });
@@ -513,10 +528,31 @@ route('POST', '/api/shield/check', async (req, res) => {
   if (!rateLimit('shield:' + clientIp(req), 600)) return send(res, 429, { error: 'rate_limited' });
   const b = await readBody(req);
   const v = shield.assess({ ip: String(b.ip || ''), ua: String(b.ua || ''), acceptLanguage: String(b.acceptLanguage || ''), js: !!b.js, vid: String(b.vid || ''), page: Number(b.page), honeypot: !!b.honeypot });
-  send(res, 200, { decision: v.decision, risk: v.score, reasons: v.reasons, retry_after_ms: v.retryAfterMs, actor: v.key });
+  // This endpoint is a simulator for the /scraper page: the signals above come
+  // from the caller so visitors can try identities on. The production path is
+  // /api/catalog, where every signal is observed from the request itself.
+  const jar = cookies(req);
+  const observedKey = jar.cm_vid ? 'v:' + String(jar.cm_vid).replace(/[^a-z0-9]/gi, '').slice(0, 16) : shield.keyFor({ ip: clientIp(req), ua: req.headers['user-agent'] || '' });
+  const seen = shield.peek(observedKey);
+  const observed = seen ? { key: observedKey, hits_last_minute: seen.hits.length, asset_beacons: seen.beacons.length } : null;
+  send(res, 200, { simulation: true, decision: v.decision, risk: v.score, reasons: v.reasons, retry_after_ms: v.retryAfterMs, actor: v.key, observed_for_this_browser: observed });
+});
+
+// Page JS beacons once per page view, so the shield can score asset loads it
+// observed itself instead of trusting a caller-supplied "js ran" flag.
+route('POST', '/api/shield/beacon', async (req, res) => {
+  if (!rateLimit('beacon:' + clientIp(req), 600)) return send(res, 429, { error: 'rate_limited' });
+  const jar = cookies(req);
+  const key = shield.keyFor({ ip: clientIp(req), ua: req.headers['user-agent'] || '', vid: jar.cm_vid || '' });
+  const ok = shield.beacon(key, null);
+  send(res, 200, { ok });
 });
 
 // ---------- API: public stats ----------
+// Tiny endpoint the widget pings to measure network round trip while a
+// challenge runs. The verdict compares RTT with reaction lag.
+route('GET', '/api/ping', async (req, res) => { send(res, 200, { t: Date.now() }); });
+route('POST', '/api/ping', async (req, res) => { send(res, 200, { t: Date.now() }); });
 route('GET', '/api/stats', async (req, res) => {
   const s = await store.stats();
   const sum = await ledger.summary();
@@ -539,7 +575,7 @@ route('POST', '/api/pass/verify', async (req, res) => {
     }
     return send(res, 200, { ok: false, reason: v.reason || 'invalid pass' });
   }
-  send(res, 200, { ok: true, subject: v.kind, actor: v.actor, via: v.via, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass', browser_bound: v.bound, browser_checked: v.bindChecked, form_bound: v.formBound, form_checked: v.formChecked });
+  send(res, 200, { ok: true, subject: v.kind, actor: v.actor, via: v.via, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass', browser_bound: v.bound, browser_checked: v.bindChecked, form_bound: v.formBound, form_checked: v.formChecked, browser_rtt_ms: v.rtt });
 });
 
 // ---------- API: the invisible ladder (rung 1 and 1b) ----------
@@ -552,10 +588,50 @@ async function mintSilent(req, via, form, attacker, note) {
   await logEvent('pass', note, { lane: via, attacker });
   return tokens.mint(actorId, 'human', reqBind(req), { form, via });
 }
+// ---------- Page nonces: bind the invisible ladder to a live page load ----------
+// The widget fetches one per page view. It is short-lived, bound to the
+// network that loaded the page, and carries the per-session name of the
+// hidden pass field, so extensions cannot hook a fixed input name and a
+// recorded telemetry replay has no fresh nonce to ride on.
+function pageNonceSign(b64) { return crypto.createHmac('sha256', SESSION_SECRET).update('pgn:' + b64).digest('base64url'); }
+function netHash(req) { return crypto.createHmac('sha256', SESSION_SECRET).update('nh:' + clientIp(req) + '|' + (req.headers['user-agent'] || '')).digest('base64url').slice(0, 16); }
+function pageNonceMint(req) {
+  const payload = { iat: Date.now(), exp: Date.now() + 10 * 60e3, nh: netHash(req), f: 'cm_' + crypto.randomBytes(5).toString('hex') };
+  const b64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return { nonce: b64 + '.' + pageNonceSign(b64), field: payload.f, ttl_ms: 10 * 60e3 };
+}
+function pageNonceCheck(req, nonce) {
+  if (typeof nonce !== 'string' || nonce.length > 400) return { ok: false };
+  const dot = nonce.lastIndexOf('.');
+  if (dot < 1) return { ok: false };
+  const b64 = nonce.slice(0, dot);
+  const a = Buffer.from(nonce.slice(dot + 1)), b = Buffer.from(pageNonceSign(b64));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false };
+  let p;
+  try { p = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8')); } catch { return { ok: false }; }
+  if (!p || Date.now() > p.exp || p.nh !== netHash(req)) return { ok: false };
+  return { ok: true, field: p.f };
+}
+route('GET', '/api/page/nonce', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('nonce:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited' });
+  send(res, 200, pageNonceMint(req));
+});
+route('POST', '/api/page/nonce', async (req, res) => {
+  cors(req, res);
+  if (!rateLimit('nonce:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited' });
+  send(res, 200, pageNonceMint(req));
+});
+
 route('POST', '/api/pass/silent', async (req, res) => {
   cors(req, res);
   if (!rateLimit('silent:' + clientIp(req), 240)) return send(res, 429, { error: 'rate_limited', reason: 'Too many checks. Wait a minute.' });
   const body = await readBody(req, 300000);
+  const pn = pageNonceCheck(req, body && body.page_nonce);
+  if (!pn.ok) {
+    await logEvent('stepup', 'Invisible check called without a live page nonce: API-only client pushed to a full check', { lane: 'silent', attacker: attackerOf(req) });
+    return send(res, 200, { tier: 'challenge', reasons: ['no live page context: this did not come from a form filled in a real page view'], challenge_url: '/check?embed=1&format=auto' });
+  }
   const r = passive.scorePassive(body.telemetry, shield.networkRisk(netMeta(req)));
   const form = formOf(body.form_hash), attacker = attackerOf(req);
   if (r.tier === 'pass') {
@@ -575,6 +651,8 @@ route('POST', '/api/pass/silent', async (req, res) => {
 route('POST', '/api/pass/nudge', async (req, res) => {
   cors(req, res);
   const body = await readBody(req);
+  const pn = pageNonceCheck(req, body && body.page_nonce);
+  if (!pn.ok) return send(res, 200, { tier: 'challenge', reasons: ['no live page context'] });
   const sess = readSession(body.session);
   if (!sess || sess.kind !== 'nudge') return send(res, 410, { error: 'session_gone', reason: 'The button check expired. Submit again.' });
   if (doneSessions.has(sess.id)) return send(res, 409, { error: 'replay', reason: 'This button check was already used.' });
@@ -816,7 +894,7 @@ function serveStatic(req, res) {
 
 const handler = async (req, res) => {
   const u = new URL(req.url, 'http://x');
-  if (req.method === 'OPTIONS' && u.pathname.startsWith('/api/pass/')) { cors(req, res); res.writeHead(204); return res.end(); }
+  if (req.method === 'OPTIONS' && (u.pathname.startsWith('/api/pass/') || u.pathname.startsWith('/api/page/'))) { cors(req, res); res.writeHead(204); return res.end(); }
   for (const r of routes) {
     if (r.method !== req.method) continue;
     const m = r.rx.exec(u.pathname);

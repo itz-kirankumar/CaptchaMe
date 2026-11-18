@@ -16,14 +16,14 @@ export default function Home() {
   return (<>
     <section className="hero">
       <div>
-        <span className="badge"><span className="dot"></span>Traffic referee for people, AI agents and bots</span>
-        <h1>Know who&apos;s visiting.<br /><em>Cap what they take.</em></h1>
-        <p className="lede">Most visitors pass invisibly while they fill in a form. Scrapers are slowed, decoyed or blocked without holding your servers open. Honest agents get a signed lane. And every actor, even one that beats a check, is capped at a fair share in dollars.</p>
+        <span className="badge"><span className="dot"></span>The control layer between your platform and everything that knocks</span>
+        <h1>People, APIs, bots, agents.<br /><em>One layer governs them all.</em></h1>
+        <p className="lede">CaptchaMe sits between your product and its traffic. People pass invisibly while they fill in a form. Bots are slowed, decoyed or stopped without holding your servers open. Honest agents get a signed lane with their own budget. And every actor, even one that beats a check, is capped at a fair share in dollars.</p>
         <div className="cta-row">
-          <Link className="btn" href="/audit">See what bots cost you</Link>
-          <Link className="btn ghost" href="/check">Try the invisible check</Link>
+          <Link className="btn" href="/demo.html">Try the live demo</Link>
+          <Link className="btn ghost" href="/audit">Zero-install bot audit</Link>
         </div>
-        <p className="note small">The audit reads the access logs you already have. Nothing to install.</p>
+        <p className="note small">The audit reads the access logs you already have. Nothing to install, nothing to deploy.</p>
       </div>
       <div className="hero-visual">
         <canvas id="herocv" width="640" height="480" aria-label="A human cursor trails the moving ring with natural lag while a bot cursor sits exactly on it"></canvas>

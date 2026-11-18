@@ -18,9 +18,25 @@
   var s = document.currentScript;
   var ORIGIN = s ? new URL(s.src).origin : location.origin;
 
+  var RTT = null, RTT_STARTED = false;
+  function measureRtt() {
+    if (RTT_STARTED) return Promise.resolve(RTT);
+    RTT_STARTED = true;
+    var ts = [];
+    function once() { var t0 = performance.now(); return fetch(ORIGIN + '/api/ping', { cache: 'no-store' }).then(function () { ts.push(performance.now() - t0); }); }
+    return once().then(once).then(function () { RTT = Math.round(Math.min.apply(null, ts)); return RTT; }).catch(function () { return null; });
+  }
+
   function post(url, body) {
-    return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json(); });
+    if (url === '/api/challenge/start') measureRtt();
+    var send = function (b) {
+      return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
+        .then(function (r) { return r.json(); });
+    };
+    if (url === '/api/challenge/submit') {
+      return measureRtt().then(function (rtt) { return send(rtt != null ? Object.assign({}, body, { rtt_ms: rtt }) : body); });
+    }
+    return send(body);
   }
 
   // Canonical form hash: SHA-256 of the sorted [name, value] pairs, ignoring the
@@ -38,7 +54,14 @@
     opts = opts || {};
     if (!form || form.__captchame) return;
     form.__captchame = true;
-    var field = opts.field || 'cm_pass';
+    // Per-session random field name, replaced by the server-issued one once the
+    // page nonce arrives: extensions cannot hook a fixed captchame_pass input.
+    var field = opts.field || 'cm_' + Math.random().toString(36).slice(2, 12);
+    var pageNonce = null;
+    var nonceReady = fetch(ORIGIN + '/api/page/nonce', { cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.nonce) { pageNonce = d.nonce; if (d.field && !opts.field) field = d.field; } })
+      .catch(function () { /* no nonce: the ladder will step up to a live check */ });
     var fields = new Map(), pointer = [], ptype = 'mouse', scrolls = 0, busy = false, submitter = null;
 
     function rec(el) {
@@ -96,8 +119,8 @@
       if (busy) return;
       busy = true;
       var trusted = e.isTrusted;
-      formHash(form, field).then(function (hash) {
-        return post('/api/pass/silent', { telemetry: telemetry(trusted), form_hash: hash }).then(function (d) {
+      nonceReady.then(function () { return formHash(form, field); }).then(function (hash) {
+        return post('/api/pass/silent', { telemetry: telemetry(trusted), form_hash: hash, page_nonce: pageNonce }).then(function (d) {
           if (typeof opts.onDecision === 'function') opts.onDecision(d);
           if (d.tier === 'pass') return finish(d.pass_token, d);
           if (d.tier === 'nudge') return nudge(d, hash);
@@ -135,7 +158,7 @@
         e.preventDefault();
         if (goShownAt === null) return reset('Too early: hold until it turns green');
         done = true;
-        var body = { session: d.session, pressAt: Math.round(pressAt), goShownAt: Math.round(goShownAt), releaseAt: Math.round(performance.now()), trusted: e.isTrusted };
+        var body = { session: d.session, pressAt: Math.round(pressAt), goShownAt: Math.round(goShownAt), releaseAt: Math.round(performance.now()), trusted: e.isTrusted, page_nonce: pageNonce };
         cleanup();
         post('/api/pass/nudge', body).then(function (r) {
           if (typeof opts.onDecision === 'function') opts.onDecision(Object.assign({ step: 'nudge' }, r));
@@ -155,7 +178,12 @@
     }
 
     // Rung 3: a full live check in an overlay, only for strong signals.
+    // Rendered inside a closed shadow root so page extensions cannot hook the
+    // overlay's DOM or read the challenge iframe from outside.
     function stepUp(hash, d) {
+      var host = document.createElement('div');
+      document.body.appendChild(host);
+      var root = host.attachShadow ? host.attachShadow({ mode: 'closed' }) : host;
       var wrap = document.createElement('div');
       wrap.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(5,6,10,.72);display:flex;align-items:center;justify-content:center;padding:16px';
       var box = document.createElement('div');
@@ -167,14 +195,14 @@
       f.src = ORIGIN + '/check?embed=1&format=auto' + (hash ? '&form=' + hash : '');
       f.title = 'CaptchaMe check'; f.setAttribute('allow', 'microphone');
       f.style.cssText = 'width:100%;height:min(760px,86vh);border:0;border-radius:18px;background:#07080c;display:block';
-      box.appendChild(close); box.appendChild(f); wrap.appendChild(box); document.body.appendChild(wrap);
+      box.appendChild(close); box.appendChild(f); wrap.appendChild(box); root.appendChild(wrap);
       function onMsg(e) {
         if (e.origin !== ORIGIN || !e.data || e.data.type !== 'captchame:pass') return;
-        removeEventListener('message', onMsg); wrap.remove();
+        removeEventListener('message', onMsg); host.remove();
         finish(e.data.pass_token, { tier: 'challenge-passed', score: e.data.score });
       }
       addEventListener('message', onMsg);
-      close.onclick = function () { removeEventListener('message', onMsg); wrap.remove(); busy = false; };
+      close.onclick = function () { removeEventListener('message', onMsg); host.remove(); busy = false; };
       if (typeof opts.onStepUp === 'function') opts.onStepUp(d);
     }
   }

@@ -13,7 +13,13 @@ function check(name, cond, extra = '') {
   if (cond) { passed++; console.log('  PASS', name); }
   else { failed++; console.log('  FAIL', name, extra); }
 }
+let NONCE = null;
+async function pageNonce() {
+  if (!NONCE) { const r = await get('/api/page/nonce'); NONCE = r.body && r.body.nonce; }
+  return NONCE;
+}
 async function post(path, body, headers = {}) {
+  if (body && (path === '/api/pass/silent' || path === '/api/pass/nudge')) body = { ...body, page_nonce: await pageNonce() };
   const r = await fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
   let b = null; try { b = await r.json(); } catch {}
   return { status: r.status, body: b };
@@ -392,6 +398,9 @@ async function runChallenge(type, payloadFn, wait = true) {
     const other = crypto.createHash('sha256').update('different submission').digest('hex');
     const bad = await post('/api/pass/verify', { pass: r.body.pass_token, form_hash: other });
     check('silent pass refused for a different form submission', bad.body.ok === false && /different form/.test(bad.body.reason), JSON.stringify(bad.body));
+    const raw = await fetch(BASE + '/api/pass/silent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telemetry: tel, form_hash: FORM }) });
+    const rawB = await raw.json();
+    check('silent telemetry without a live page nonce is pushed to a full check', rawB.tier === 'challenge', JSON.stringify(rawB));
   }
   {
     const r = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 400, fields: [{ keys: [], chars: 15 }], pointer: [], trustedSubmit: true, env: {} }, form_hash: FORM });
