@@ -94,3 +94,16 @@ GET  /api/admin/events      X-Admin-Key (dashboard feed)
 ```
 
 MIT licensed.
+
+
+## The advanced challenges (v2)
+
+Three layers beyond the base build, aimed at the tools people actually use to get past captchas:
+
+- **Follow the ring, with darts** - the ring teleports to a new path twice at random moments. A script that read the path from the challenge response tracks the jump with zero reaction time (flagged). A look-think-act browser agent takes seconds to re-aim (flagged). A person re-acquires in a few hundred ms with a visible swoop.
+- **Catch the flash** - five flashes at random gaps, click each within a sub-second window. Timers that click at a fixed offset show identical reaction times (flagged). Agents whose screenshot-think-act loop takes over a second miss every window. People land at 200-450 ms, scattered.
+- **Honeypot trap link** - an offscreen, aria-hidden link labelled for machines ("complete verification here"). People never see it; screen readers skip it; DOM-reading agents follow it and get logged as automated traffic.
+
+STT-based audio solvers (the Buster approach) hit the voice path, which scores vocal onset timing per word and caps a no-transcript pass at 70, so a solved voice challenge is worth less on the ledger than a solved interactive one.
+
+Human friction budget: ring 7s, beat ~9s, voice ~8s, flash ~11s. One screen, one try, no puzzles.
