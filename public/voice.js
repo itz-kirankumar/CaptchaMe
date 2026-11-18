@@ -97,17 +97,7 @@ document.getElementById('start').addEventListener('click', async () => {
     wordTimings,
     transcript: transcript.trim(),
   });
-  const b = res.body;
-  const d = document.createElement('div');
-  if (b.result === 'pass') {
-    d.className = 'result pass';
-    d.textContent = `Passed (score ${b.score}). Your words matched and a live voice answered. $${b.budget_added.toFixed(2)} added to your allowance.`;
-    out.appendChild(d);
-    setTimeout(() => location.href = '/use.html', 1600);
-  } else {
-    d.className = 'result fail';
-    d.textContent = `Not passed (score ${b.score}).\n${b.reason || ''}\n\nYou can retry here, or use the ring or beat path instead.`;
-    out.appendChild(d);
-  }
+  const passed = verdict(out, res, { redirect: true, failHint: 'You can retry here, or use the ring or beat path instead.' });
+  if (passed) setTimeout(() => location.href = '/use.html', 2400);
   wordBox.textContent = 'Press start when ready';
 });

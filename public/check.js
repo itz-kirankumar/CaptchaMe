@@ -16,13 +16,8 @@ async function post(url, body) {
 }
 
 function report(res) {
-  const b = res.body;
-  if (b.result === 'pass') {
-    show('pass', `Passed (score ${b.score}).\n$${b.budget_added.toFixed(2)} added to your allowance on the demo API.\n\nTry it: /use.html`);
-    setTimeout(() => location.href = '/use.html', 1600);
-  } else {
-    show('fail', `Not passed (score ${b.score}).\n${b.reason || ''}\n\nYou can retry, or use the voice path.`);
-  }
+  const passed = verdict(out, res, { redirect: true, failHint: 'You can retry here, or use the voice path.' });
+  if (passed) setTimeout(() => location.href = '/use.html', 2400);
 }
 
 // ---------- ring ----------

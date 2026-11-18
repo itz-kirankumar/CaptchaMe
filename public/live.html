@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Live run: bot vs human - CaptchaMe</title><link rel="stylesheet" href="/style.css"></head><body><main>
+<h1>Live run: bot vs human</h1>
+<p class="sub">Two cursors follow the same moving ring at the same time. Left: a script that read the published path and tracks it perfectly. Right: a hand with reaction lag, wander and constant small corrections. Both cursors are simulated here so you can watch; the judging is the real CaptchaMe server, live. Then <a style="color:var(--accent)" href="/check.html">try the human side yourself</a>.</p>
+<p><button id="go">Run it live</button> <span class="note" id="status"></span></p>
+<div class="livegrid">
+  <div class="card">
+    <h2 style="margin-top:0">Script bot</h2>
+    <canvas id="botcv" width="400" height="260"></canvas>
+    <div id="botout"></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Human</h2>
+    <canvas id="humcv" width="400" height="260"></canvas>
+    <div id="humout"></div>
+  </div>
+</div>
+<p class="note"><a style="color:var(--accent)" href="/">Back</a> &middot; The dashboard records both verdicts: <a style="color:var(--accent)" href="/dashboard.html">open it on the projector</a>.</p>
+<script src="/verdict.js"></script>
+<script src="/live.js"></script>
+</main></body></html>
