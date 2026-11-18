@@ -310,3 +310,15 @@ html, body { overflow-x: clip; }
 .rn-antbl td.mono { color: var(--brand-text); white-space: nowrap; }
 @media (max-width: 640px) { .rn-ankv { grid-template-columns: 1fr 1fr; } }
 body > footer, .footer { z-index: 0; }
+
+/* ---------- failed-run screen ---------- */
+.rn-fail { position: absolute; inset: 0; z-index: 5; overflow-y: auto; padding: 34px clamp(20px, 5vw, 56px) 28px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(6px); animation: rnFailIn .55s cubic-bezier(.2,.9,.25,1) both; }
+@keyframes rnFailIn { from { opacity: 0; transform: scale(1.04); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+.rn-oops { position: relative; display: inline-block; font: 800 clamp(48px, 9vw, 96px)/1 var(--font-display); letter-spacing: -.05em; color: var(--bot-text); animation: rnGlitch 2.6s .6s infinite; }
+.rn-oops::before, .rn-oops::after { content: attr(data-t); position: absolute; left: 0; top: 0; opacity: 0; }
+.rn-oops::before { color: var(--agent); animation: rnG1 2.6s .6s infinite; } .rn-oops::after { color: var(--brand); animation: rnG2 2.6s .6s infinite; }
+.rn-oopsp { color: var(--muted); font: 500 18px var(--font-body); margin: 8px 0 18px; }
+.rn-fail .rn-where { margin: 0 0 16px; }
+.rn-fail .rn-an.flat { margin-top: 0; animation: none; }
+.rn-fail-act { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.rn-sheet > .rn-fail { position: absolute; inset: 0; z-index: 5; }

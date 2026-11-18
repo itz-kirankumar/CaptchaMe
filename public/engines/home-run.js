@@ -157,7 +157,7 @@
       (l2 ? '<div class="rn-who"><b>' + esc(l2.cls.replace(/_/g, ' ')) + '</b><span>' + Math.round(l2.conf * 100) + '% sure &middot; ' + l2.identities.ips + ' address' + (l2.identities.ips === 1 ? '' : 'es') + ' &middot; ' + l2.identities.uas + ' browser name' + (l2.identities.uas === 1 ? '' : 's') + '</span></div>' : '') +
       '<div class="rn-act"><button class="btn ghost" id="rnAgain">Run another</button><a class="btn accent" href="/layer2">Layer 2 analysis</a></div></div>' + where;
     verdictEl.classList.add('on');
-    if (l2 && l2.subject) showAnalytics(l2.subject);
+    if (l2 && l2.subject) showAnalytics(l2.subject).then(el => { if (el && (bad || warn)) setTimeout(() => openFail(el, where, my, bad), 1500); });
     $('rnAgain').onclick = () => { close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
@@ -174,6 +174,24 @@
       (ev ? '<table class="rn-antbl"><thead><tr><th>Layer</th><th>Evidence</th><th>What it saw</th></tr></thead><tbody>' + ev + '</tbody></table>' : '') +
       '<a class="btn ghost sm" href="/layer2">Open the full layer 2 analysis</a>';
     term.appendChild(el); toBottom();
+    return el;
+  }
+  // the failed-run screen: shown over the sheet, with the analysis
+  function openFail(analysis, where, my, blocked) {
+    if (run !== my) return;
+    const sheet = modal.querySelector('.rn-sheet');
+    const f = document.createElement('div'); f.className = 'rn-fail';
+    const a = analysis.cloneNode(true); a.classList.add('flat');
+    const h = a.querySelector('.rn-h'); if (h) h.remove();
+    const btn = a.querySelector('a.btn'); if (btn) btn.remove();
+    f.innerHTML = '<div class="rn-oops" data-t="UH-OH">UH-OH</div>' +
+      '<p class="rn-oopsp">' + (blocked ? 'That request failed.' : 'That request was held back.') + ' Here is the analysis.</p>' +
+      where + '<div class="rn-fail-an"></div>' +
+      '<div class="rn-fail-act"><button class="btn ghost" id="rnRaw">See the raw run</button><button class="btn ghost" id="rnAgain2">Run another</button><a class="btn accent" href="/layer2">Full layer 2 analysis</a></div>';
+    f.querySelector('.rn-fail-an').appendChild(a);
+    sheet.appendChild(f);
+    f.querySelector('#rnRaw').onclick = () => f.remove();
+    f.querySelector('#rnAgain2').onclick = () => { close(); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   }
 
   function feed(e) {
