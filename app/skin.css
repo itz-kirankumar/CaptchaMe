@@ -151,3 +151,16 @@ body.th-lock { overflow: hidden; }
   .th-hero *, .th-sheet, .th-ln, .th-card, .rv { animation: none !important; transition: none !important; }
   .rv { opacity: 1; transform: none; }
 }
+
+/* ---------- lean demo ---------- */
+.lv-pills { display: none !important; }
+.lv-sp { flex: 1; }
+.lv-start { padding: 11px 26px; font-size: 15px; box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 55%, transparent); animation: lvGlow 2.2s infinite; }
+@keyframes lvGlow { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 50%, transparent); } 60% { box-shadow: 0 0 0 12px transparent; } }
+.demo-sec { scroll-margin-top: 84px; max-width: 1100px; margin-left: auto; margin-right: auto; }
+.demo-sec .th-bar { margin-top: 18px; }
+.demo-sec .th-more { text-align: center; }
+.lv { border-radius: 24px; overflow: hidden; }
+.lv-main { grid-template-columns: 230px 1fr; }
+@media (max-width: 760px) { .lv-main { grid-template-columns: 1fr; } }
+html, body { overflow-x: clip; }

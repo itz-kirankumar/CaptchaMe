@@ -13,7 +13,8 @@
     '<button class="lv-mode on" data-lv-mode="human">a person</button>' +
     '<button class="lv-mode" data-lv-mode="bot">a bare script</button>' +
     '<button class="lv-mode" data-lv-mode="agent">an agent</button>' +
-    '<button class="lv-mode" data-lv-mode="scraper">a scraper</button></div>' +
+    '<button class="lv-mode" data-lv-mode="scraper">a scraper</button>' +
+    '<span class="lv-sp"></span><button class="lv-start" id="lvstart">&#9654; Start</button></div>' +
     '<div class="lv-pills" id="lvpills"></div>' +
     '<div class="lv-bar"><i id="lvbarfill"></i></div>' +
     '<div class="lv-stephead"><div class="crumb"><span class="live-dot" id="lvdot"></span><span id="lvcrumb">Ready</span></div>' +
@@ -436,11 +437,13 @@
     running = false;
   }
 
+  const startBtn = document.getElementById('lvstart');
+  startBtn.addEventListener('click', () => { startBtn.textContent = '↻ Run again'; run(currentMode); });
   app.querySelectorAll('.lv-mode').forEach(btn => {
     btn.addEventListener('click', () => {
       app.querySelectorAll('.lv-mode').forEach(b => b.classList.toggle('on', b === btn));
       currentMode = btn.dataset.lvMode;
-      run(currentMode);
+      paintPills(currentMode, -1, []); paintDiagram(currentMode, -1, []);
     });
   });
   paintPills(currentMode, -1, []); paintDiagram(currentMode, -1, []);

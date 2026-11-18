@@ -5,16 +5,9 @@ import { useEffect, useState } from 'react';
 import Logo from './Logo';
 
 export const LINKS = [
-  ['/live', 'Live run'],
-  ['/layer2', 'Layer 2'],
-  ['/audit', 'Audit'],
-  ['/#livestack', 'Live gateway'],
-  ['/check', 'Risk ladder'],
-  ['/arena', 'Arena'],
-  ['/scraper', 'Scraper shield'],
-  ['/agent', 'Agent lane'],
-  ['/integrations', 'Integrations'],
-  ['/analytics', 'Analytics'],
+  ['/#livestack', 'Live demo'],
+  ['/#stopped', 'Where attacks stop'],
+  ['/layer2', 'Layer 2 analysis'],
 ];
 
 export default function Nav() {
