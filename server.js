@@ -59,9 +59,32 @@ function logEvent(type, message, extra = {}) {
 }
 
 // ---------- challenge sessions ----------
-const sessions = new Map(); // id -> {type, params, createdAt, ip, done}
+// Sessions are stateless: a signed payload carries the params, so a submit
+// works even when a serverless platform routes it to a fresh instance.
+// Replay tracking is in-memory (best effort on serverless, exact on one box).
 const SESSION_TTL = 90 * 1000;
-setInterval(() => { const now = Date.now(); for (const [k, v] of sessions) if (now - v.createdAt > SESSION_TTL) sessions.delete(k); }, 30000).unref();
+const SESSION_SECRET = process.env.POP_SECRET || crypto.randomBytes(32).toString('hex');
+const doneSessions = new Set();
+setInterval(() => { if (doneSessions.size > 20000) { const it = doneSessions.values(); for (let i = 0; i < 10000; i++) doneSessions.delete(it.next().value); } }, 30000).unref();
+function signSession(obj) {
+  const b64 = Buffer.from(JSON.stringify(obj)).toString('base64url');
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
+  return b64 + '.' + sig;
+}
+function readSession(token) {
+  if (typeof token !== 'string' || token.length > 4000) return null;
+  const dot = token.lastIndexOf('.');
+  if (dot < 1) return null;
+  const b64 = token.slice(0, dot), sig = token.slice(dot + 1);
+  const expect = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
+  const a = Buffer.from(sig), b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const s = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+    if (!s.id || Date.now() - s.iat > SESSION_TTL) return null;
+    return s;
+  } catch { return null; }
+}
 
 const VOICE_WORDS = ['mango', 'river', 'lantern', 'copper', 'window', 'falcon', 'harbor', 'pencil', 'thunder', 'garden', 'silver', 'bridge', 'marble', 'cloud', 'tiger', 'velvet', 'anchor', 'meadow', 'rocket', 'willow'];
 
@@ -99,19 +122,19 @@ route('POST', '/api/challenge/start', async (req, res) => {
   } else {
     return send(res, 400, { error: 'bad_type', reason: 'type must be ring, beat or voice' });
   }
-  sessions.set(id, { type, params, createdAt: Date.now(), ip, done: false });
-  send(res, 200, { session: id, type, params, expires_in_ms: SESSION_TTL });
+  const session = signSession({ id, type, params, iat: Date.now() });
+  send(res, 200, { session, type, params, expires_in_ms: SESSION_TTL });
 });
 
 route('POST', '/api/challenge/submit', async (req, res) => {
   const body = await readBody(req);
-  const sess = sessions.get(body.session);
-  if (!sess) return send(res, 410, { error: 'session_gone', reason: 'Challenge expired. Start a fresh one.' });
-  if (sess.done) {
-    logEvent('replay', `Replay blocked: session ${body.session.slice(0, 6)} submitted twice`, { lane: sess.type });
+  const sess = readSession(body.session);
+  if (!sess) return send(res, 410, { error: 'session_gone', reason: 'Challenge expired or was tampered with. Start a fresh one.' });
+  if (doneSessions.has(sess.id)) {
+    logEvent('replay', `Replay blocked: session ${sess.id.slice(0, 6)} submitted twice`, { lane: sess.type });
     return send(res, 409, { error: 'replay', reason: 'This challenge was already answered. Challenges work once.' });
   }
-  sess.done = true;
+  doneSessions.add(sess.id);
 
   let result;
   if (sess.type === 'ring') result = scoring.scoreRing(sess.params, body.samples);
@@ -256,7 +279,7 @@ function serveStatic(req, res) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+const handler = async (req, res) => {
   const u = new URL(req.url, 'http://x');
   for (const r of routes) {
     if (r.method !== req.method) continue;
@@ -267,12 +290,20 @@ const server = http.createServer(async (req, res) => {
       catch (e) { return send(res, 500, { error: 'server_error', reason: e.message }); }
     }
   }
-  if (req.method === 'GET') return serveStatic(req, res);
+  if (req.method === 'GET') {
+    // On Vercel, /public is served by the platform and only /api/* reaches
+    // this function. Locally the same handler serves everything.
+    if (process.env.VERCEL) return send(res, 404, { error: 'not_found' });
+    return serveStatic(req, res);
+  }
   send(res, 404, { error: 'not_found' });
-});
+};
 
-server.listen(PORT, () => {
-  console.log(`Proof of Presence listening on http://localhost:${PORT}`);
-  console.log(`Dashboard: http://localhost:${PORT}/dashboard.html  (admin key: ${ADMIN_KEY})`);
-});
-module.exports = server;
+if (require.main === module) {
+  const server = http.createServer(handler);
+  server.listen(PORT, () => {
+    console.log(`Proof of Presence listening on http://localhost:${PORT}`);
+    console.log(`Dashboard: http://localhost:${PORT}/dashboard.html  (admin key: ${ADMIN_KEY})`);
+  });
+}
+module.exports = handler;
