@@ -14,6 +14,7 @@
   }
 
   function gate(wrong) {
+    if (['/', '/evidence', '/try'].includes(location.pathname)) return; // public pages never ask for a key
     if (document.querySelector('.admingate')) return;
     const main = document.querySelector('main') || document.body;
     const box = document.createElement('div');

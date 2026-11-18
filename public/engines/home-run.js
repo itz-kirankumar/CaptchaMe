@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  document.querySelectorAll('.admingate').forEach(n => n.remove());
   const form = document.getElementById('runForm');
   if (!form) return;
   const $ = id => document.getElementById(id);
