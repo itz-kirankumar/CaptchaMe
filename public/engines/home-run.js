@@ -17,18 +17,19 @@
     rv.forEach(el => io.observe(el));
   } else rv.forEach(el => el.classList.add('in'));
 
-  // ---------- hero: one live race behind the headline ----------
-  // A ring races across the whole hero and jumps every 1.6 s. A person's
-  // cursor chases it with a lag and swoops after each jump; a bot sits glued
-  // to it; a solver relay arrives late. Each jump flashes who reacted how.
+  // ---------- hero: calm tracking field ----------
+  // A faint dot grid with a few soft rings drifting slowly near the edges.
+  // Dots light up gently as a ring passes, like a field reading presence.
+  // Nothing moves behind the headline, nothing is fast, no text.
   const cv = $('thCurves');
   if (cv && cv.getContext) {
     const ctx = cv.getContext('2d');
     const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
     let C = {};
-    const readColors = () => { C = { mark: css('--mark') || css('--brand'), human: css('--human'), bot: css('--bot'), warn: css('--warn'), muted: css('--muted') }; };
-    readColors(); window.addEventListener('cm-theme', () => setTimeout(readColors, 30));
+    const readColors = () => { C = { mark: css('--mark') || css('--brand'), dot: css('--faint') || css('--muted') }; };
+    readColors(); window.addEventListener('cm-theme', () => setTimeout(() => { readColors(); kick(); }, 30));
     let W = 0, H = 0, dpr = 1;
+    const GAP = 30;
     function layout() {
       const box = cv.parentElement.getBoundingClientRect();
       dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -36,57 +37,41 @@
       cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    const JUMP = 1600;
-    let phase = { px: 0.4, py: 1.3 }, lastJump = 0, jumps = 0;
-    const path = (t, ph) => ({ x: W * (0.5 + 0.44 * Math.sin(2 * Math.PI * 0.21 * t + ph.px)), y: H * (0.5 + 0.36 * Math.sin(2 * Math.PI * 0.33 * t + ph.py)) });
-    const actors = [
-      { key: 'human', lag: 0.2, ease: 0.11, trail: [], label: 'HUMAN', pos: null },
-      { key: 'warn', lag: 0.9, ease: 0.05, trail: [], label: 'SOLVER', pos: null },
-      { key: 'bot', lag: 0, ease: 1, trail: [], label: 'BOT', pos: null },
+    // how visible a point is: zero behind the text column, rising toward the edges
+    const edge = x => { const d = Math.abs(x - W / 2) / (W / 2); return Math.max(0, Math.min(1, (d - 0.42) / 0.38)); };
+    const rings = [
+      { side: -1, fx: 0.031, fy: 0.047, p: 0.0, r: 46 },
+      { side: -1, fx: 0.023, fy: 0.037, p: 2.1, r: 34 },
+      { side: 1, fx: 0.027, fy: 0.043, p: 1.1, r: 42 },
+      { side: 1, fx: 0.035, fy: 0.029, p: 3.4, r: 30 },
     ];
-    const pops = [], hist = [];
+    const ringPos = (g, t) => ({ x: W / 2 + g.side * W * (0.36 + 0.09 * Math.sin(2 * Math.PI * g.fx * t + g.p)), y: H * (0.5 + 0.34 * Math.sin(2 * Math.PI * g.fy * t + g.p * 1.7)) });
     const t0 = performance.now();
     function frame(now) {
       const t = (now - t0) / 1000;
-      if (now - lastJump > JUMP) {
-        lastJump = now; jumps++;
-        phase = { px: Math.random() * 6.28, py: Math.random() * 6.28 };
-        const g = path(t, phase);
-        pops.push({ at: now, x: g.x, y: g.y, kind: 'jump' });
-      }
-      hist.push({ t, ph: phase }); while (hist.length && t - hist[0].t > 1.2) hist.shift();
-      const g = path(t, phase);
       ctx.clearRect(0, 0, W, H);
-      // ring
-      const jt = (now - lastJump) / 220;
-      ctx.beginPath(); ctx.arc(g.x, g.y, 26 + (jt < 1 ? (1 - jt) * 16 : 0), 0, 7); ctx.strokeStyle = C.mark; ctx.lineWidth = 3; ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
-      // actors
-      for (const a of actors) {
-        const h = [...hist].reverse().find(x => t - x.t >= a.lag) || hist[0];
-        const target = path(t - a.lag, h ? h.ph : phase);
-        if (!a.pos) a.pos = { ...target };
-        if (a.key === 'bot') a.pos = { x: g.x, y: g.y };
-        else { a.pos.x += (target.x - a.pos.x) * a.ease + (a.key === 'human' ? (Math.random() - 0.5) * 1.6 : 0); a.pos.y += (target.y - a.pos.y) * a.ease + (a.key === 'human' ? (Math.random() - 0.5) * 1.6 : 0); }
-        a.trail.push({ x: a.pos.x, y: a.pos.y }); if (a.trail.length > (a.key === 'bot' ? 2 : 26)) a.trail.shift();
-        if (a.key !== 'bot') { ctx.beginPath(); a.trail.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.strokeStyle = C[a.key]; ctx.globalAlpha = 0.35; ctx.lineWidth = 2.5; ctx.stroke(); ctx.globalAlpha = 1; }
-        ctx.beginPath(); ctx.arc(a.pos.x, a.pos.y, a.key === 'bot' ? 5 : 6.5, 0, 7); ctx.fillStyle = C[a.key]; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
-        // verdict a moment after each jump
-        const since = now - lastJump;
-        if (jumps && since > (a.key === 'bot' ? 60 : a.key === 'human' ? 420 : 1000) && since < (a.key === 'bot' ? 760 : a.key === 'human' ? 1180 : 1560)) {
-          const txt = a.key === 'bot' ? 'BOT · 0 ms ✗' : a.key === 'human' ? 'HUMAN · ' + (180 + (jumps * 37) % 90) + ' ms ✓' : 'SOLVER · late ✗';
-          ctx.font = '700 12px "JetBrains Mono", monospace'; ctx.fillStyle = C[a.key]; ctx.globalAlpha = 0.9; ctx.fillText(txt, a.pos.x + 12, a.pos.y - (a.key === 'bot' ? 14 : -18)); ctx.globalAlpha = 1;
+      const pos = rings.map(g => ({ ...ringPos(g, t), r: g.r }));
+      for (let y = GAP / 2; y < H; y += GAP) {
+        for (let x = GAP / 2; x < W; x += GAP) {
+          const e = edge(x); if (e <= 0) continue;
+          let glow = 0;
+          for (const p of pos) { const d = Math.hypot(x - p.x, y - p.y); if (d < p.r * 2.2) glow = Math.max(glow, 1 - d / (p.r * 2.2)); }
+          ctx.globalAlpha = e * (0.16 + glow * 0.55);
+          ctx.fillStyle = glow > 0.05 ? C.mark : C.dot;
+          ctx.fillRect(x - 1, y - 1, glow > 0.3 ? 2.6 : 2, glow > 0.3 ? 2.6 : 2);
         }
       }
-      // jump bursts
-      for (let i = pops.length - 1; i >= 0; i--) {
-        const p = pops[i], k = (now - p.at) / 500;
-        if (k > 1) { pops.splice(i, 1); continue; }
-        ctx.beginPath(); ctx.arc(p.x, p.y, 10 + k * 60, 0, 7); ctx.strokeStyle = C.mark; ctx.globalAlpha = 0.4 * (1 - k); ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+      for (const p of pos) {
+        const e = edge(p.x);
+        ctx.globalAlpha = e * 0.35; ctx.strokeStyle = C.mark; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.stroke();
+        ctx.globalAlpha = e * 0.12; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.6 + 6 * Math.sin(t * 1.2 + p.r), 0, 7); ctx.stroke();
       }
+      ctx.globalAlpha = 1;
       if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame);
     }
     let raf = 0, visible = true;
-    const kick = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); };
+    function kick() { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
     layout(); kick();
     let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { layout(); kick(); }, 150); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); });
