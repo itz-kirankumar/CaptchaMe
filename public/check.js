@@ -46,11 +46,14 @@ document.getElementById('startRing').addEventListener('click', async () => {
   const t0 = performance.now();
   let px = null, py = null;
 
+  const darts = (P.darts || []).slice().sort((a, b) => a.at - b.at);
   function target(tms) {
     const t = tms / 1000;
+    let px = P.px, py = P.py;
+    for (const d of darts) { if (tms >= d.at) { px = d.px; py = d.py; } }
     return {
-      x: (0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + P.px)) * cv.width,
-      y: (0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + P.py)) * cv.height,
+      x: (0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + px)) * cv.width,
+      y: (0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + py)) * cv.height,
     };
   }
   function onMove(e) {
@@ -123,6 +126,46 @@ document.getElementById('startBeat').addEventListener('click', async () => {
     zone.removeEventListener('pointerdown', tap);
     zone.textContent = 'Tap zone';
     const res = await post('/api/challenge/submit', { session: r.body.session, taps });
+    report(res);
+  }
+  requestAnimationFrame(tick);
+});
+
+// ---------- reflex ----------
+const reflexZone = document.getElementById('reflexzone');
+document.getElementById('startReflex').addEventListener('click', async () => {
+  const r = await post('/api/challenge/start', { type: 'reflex' });
+  if (r.status !== 200) return show('fail', 'Could not start: ' + (r.body.reason || r.status));
+  const rounds = r.body.params.rounds;
+  const clicks = [];
+  const t0 = performance.now();
+  const endAt = r.body.params.totalMs;
+  reflexZone.textContent = 'Wait for the flash...';
+  reflexZone.focus();
+
+  function click() {
+    const t = performance.now() - t0;
+    if (t < endAt) clicks.push(Math.round(t));
+  }
+  reflexZone.addEventListener('pointerdown', click);
+  reflexZone.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); click(); } });
+
+  let ri = 0;
+  function tick() {
+    const t = performance.now() - t0;
+    if (ri < rounds.length && t >= rounds[ri].at) {
+      const win = rounds[ri].windowMs; ri++;
+      reflexZone.classList.add('flash');
+      reflexZone.textContent = 'CLICK';
+      setTimeout(() => { reflexZone.classList.remove('flash'); reflexZone.textContent = ri < rounds.length ? 'Wait for the flash...' : 'Done'; }, win);
+    }
+    if (t < endAt) requestAnimationFrame(tick);
+    else finish();
+  }
+  async function finish() {
+    reflexZone.removeEventListener('pointerdown', click);
+    reflexZone.textContent = 'Tap the flash';
+    const res = await post('/api/challenge/submit', { session: r.body.session, clicks });
     report(res);
   }
   requestAnimationFrame(tick);

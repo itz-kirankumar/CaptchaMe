@@ -39,3 +39,7 @@ input, textarea { width:100%; background:#0e1420; border:1px solid var(--line); 
 .meter { height:10px; background:#0e1420; border-radius:6px; overflow:hidden; margin:8px 0 18px; }
 .meter i { display:block; height:100%; background:var(--accent); }
 .word { font-size:44px; font-weight:700; text-align:center; padding:40px 0; letter-spacing:1px; }
+
+#reflexzone { display:flex; align-items:center; justify-content:center; height:180px; border:1px solid var(--line); border-radius:12px; cursor:pointer; user-select:none; font-size:18px; color:#9aa4b8; background:#121826; }
+#reflexzone.flash { background:#f5d76e; color:#111; font-weight:700; }
+a.trap { position:absolute; left:-10000px; top:-10000px; width:1px; height:1px; overflow:hidden; }

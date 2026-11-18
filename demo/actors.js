@@ -7,9 +7,11 @@ function mulberry(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0
 
 function targetAt(P, tms) {
   const t = tms / 1000;
+  let px = P.px, py = P.py;
+  for (const d of (P.darts || [])) { if (tms >= d.at) { px = d.px; py = d.py; } }
   return {
-    x: 0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + P.px),
-    y: 0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + P.py),
+    x: 0.5 + P.ax * Math.sin(2 * Math.PI * P.fx * t + px),
+    y: 0.5 + P.ay * Math.sin(2 * Math.PI * P.fy * t + py),
   };
 }
 
@@ -19,11 +21,16 @@ function humanRing(P, seed = 1) {
   const lag = 140 + rng() * 120;
   const samples = [];
   let wx = 0, wy = 0; // slow wander
+  let cx = null, cy = null; // carried position across darts
   for (let t = 0; t < P.durationMs; t += 16 + rng() * 6) {
     wx = wx * 0.95 + gauss(rng) * 0.004;
     wy = wy * 0.95 + gauss(rng) * 0.004;
     const g = targetAt(P, t - lag);
-    samples.push({ t: Math.round(t), x: +(g.x + wx + gauss(rng) * 0.01).toFixed(4), y: +(g.y + wy + gauss(rng) * 0.01).toFixed(4) });
+    if (cx === null) { cx = g.x; cy = g.y; }
+    // people swoop toward the target, covering ~25%/tick: instant when close, visible recovery after a dart
+    cx += (g.x - cx) * 0.25;
+    cy += (g.y - cy) * 0.25;
+    samples.push({ t: Math.round(t), x: +(cx + wx + gauss(rng) * 0.01).toFixed(4), y: +(cy + wy + gauss(rng) * 0.01).toFixed(4) });
   }
   return samples;
 }
@@ -73,4 +80,16 @@ function botVoice(words) {
   return { wordTimings, transcript: words.join(' ') };
 }
 
-module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice };
+// Reflex actors. rounds: [{at, windowMs}]
+function humanReflex(rounds, seed = 4) {
+  const rng = mulberry(seed);
+  return rounds.map(r => Math.round(r.at + 180 + rng() * 260));
+}
+function scriptReflex(rounds) {
+  return rounds.map(r => r.at + 40); // identical 40 ms every round: a timer
+}
+function agentReflex(rounds) {
+  return rounds.map(r => r.at + 1350); // look-think-act loop: misses every sub-second window
+}
+
+module.exports = { humanRing, scriptRing, agentRing, humanBeat, scriptBeat, humanVoice, botVoice, humanReflex, scriptReflex, agentReflex };

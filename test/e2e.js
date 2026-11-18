@@ -44,6 +44,8 @@ async function runChallenge(type, payloadFn) {
     ['beat', P => ({ taps: actors.humanBeat(P.beats, 99) })],
     ['voice', P => actors.humanVoice(P.words, 13)],
     ['voice', P => actors.humanVoice(P.words, 55)],
+    ['reflex', P => ({ clicks: actors.humanReflex(P.rounds, 21) })],
+    ['reflex', P => ({ clicks: actors.humanReflex(P.rounds, 87) })],
   ]) {
     const r = await runChallenge(type, fn);
     check(`human ${type} passes`, r.sub && r.sub.result === 'pass', JSON.stringify(r.sub));
@@ -66,6 +68,25 @@ async function runChallenge(type, payloadFn) {
   {
     const r = await runChallenge('voice', P => actors.botVoice(P.words));
     check('uniform voice playback fails', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.detail));
+  }
+  {
+    const r = await runChallenge('reflex', P => ({ clicks: actors.scriptReflex(P.rounds) }));
+    check('identical-timing reflex script fails', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.detail));
+    check('reflex script flagged as timer', r.sub && r.sub.flags.some(f => /identical reaction/.test(f)), JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    const r = await runChallenge('reflex', P => ({ clicks: actors.agentReflex(P.rounds) }));
+    check('slow agent reflex fails', r.sub && r.sub.result === 'fail', JSON.stringify(r.sub && r.sub.detail));
+  }
+  {
+    const r = await runChallenge('ring', P => ({ samples: actors.scriptRing(P) }));
+    check('script ring flagged on dart tracking', r.sub && r.sub.flags.some(f => /zero reaction time/.test(f)), JSON.stringify(r.sub && r.sub.flags));
+  }
+  {
+    const t = await get('/trap');
+    check('trap endpoint responds', t.status === 200);
+    const dash = await get('/api/admin/events', { 'x-admin-key': 'demo-admin' });
+    check('trap visit logged on dashboard', JSON.stringify(dash.body).includes('trap'));
   }
   {
     // replay: answer a session, then answer it again

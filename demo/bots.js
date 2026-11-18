@@ -48,7 +48,30 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('5. Replay attack: steal a finished session and answer it again');
+  console.log('5. Reflex script: clicks 40 ms after every flash, like a timer');
+  {
+    const s = await post('/api/challenge/start', { type: 'reflex' });
+    const r = await post('/api/challenge/submit', { session: s.body.session, clicks: actors.scriptReflex(s.body.params.rounds) });
+    console.log('   ->', r.body.result, '| score', r.body.score, '|', r.body.flags[0] || '');
+  }
+  await sleep(800);
+
+  console.log('6. Slow agent on the flash check: reacts in 1.35 s, misses every window');
+  {
+    const s = await post('/api/challenge/start', { type: 'reflex' });
+    const r = await post('/api/challenge/submit', { session: s.body.session, clicks: actors.agentReflex(s.body.params.rounds) });
+    console.log('   ->', r.body.result, '| score', r.body.score, '|', r.body.flags[0] || '');
+  }
+  await sleep(800);
+
+  console.log('7. DOM-reading agent: follows the hidden verification link only a program can see');
+  {
+    const r = await fetch(BASE + '/trap');
+    console.log('   -> HTTP', r.status, '| logged as automated traffic on the dashboard');
+  }
+  await sleep(800);
+
+  console.log('8. Replay attack: steal a finished session and answer it again');
   {
     const s = await post('/api/challenge/start', { type: 'beat' });
     await post('/api/challenge/submit', { session: s.body.session, taps: actors.humanBeat(s.body.params.beats, 5) });
@@ -57,7 +80,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('6. Scraper: hammer the protected API with no presence, no declaration');
+  console.log('9. Scraper: hammer the protected API with no presence, no declaration');
   {
     const jar = [];
     for (let i = 0; i < 9; i++) {
@@ -69,7 +92,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   }
   await sleep(800);
 
-  console.log('7. The honest agent: declares with a signed key, no puzzle, own budget');
+  console.log('10. The honest agent: declares with a signed key, no puzzle, own budget');
   {
     const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
     const pub = publicKey.export({ format: 'der', type: 'spki' }).toString('base64');

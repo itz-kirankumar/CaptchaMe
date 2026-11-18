@@ -110,11 +110,20 @@ route('POST', '/api/challenge/start', async (req, res) => {
       fx: 0.12 + Math.random() * 0.10, fy: 0.12 + Math.random() * 0.10,
       px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
       durationMs: 7000,
+      reacquireMs: 1200,
+      darts: [2200 + Math.random() * 800, 4400 + Math.random() * 800].map(at => ({
+        at: Math.round(at),
+        px: Math.random() * Math.PI * 2, py: Math.random() * Math.PI * 2,
+      })),
     };
   } else if (type === 'beat') {
     const beats = []; let t = 1500;
     for (let i = 0; i < 12; i++) { beats.push(Math.round(t)); t += 550 + Math.random() * 200; }
     params = { beats };
+  } else if (type === 'reflex') {
+    const rounds = []; let t = 1200;
+    for (let i = 0; i < 5; i++) { rounds.push({ at: Math.round(t), windowMs: 900 }); t += 1400 + Math.random() * 1900; }
+    params = { rounds, totalMs: Math.round(t + 800) };
   } else if (type === 'voice') {
     const words = [...VOICE_WORDS].sort(() => Math.random() - 0.5).slice(0, 4);
     const cadence = words.map(() => 1400 + Math.round(Math.random() * 900)); // ms between word prompts
@@ -137,11 +146,12 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   doneSessions.add(sess.id);
 
   let result;
-  if (sess.type === 'ring') result = scoring.scoreRing(sess.params, body.samples);
+  if (sess.type === 'ring') result = scoring.scoreRingDarts(sess.params, body.samples);
   else if (sess.type === 'beat') result = scoring.scoreBeat(sess.params.beats, body.taps);
+  else if (sess.type === 'reflex') result = scoring.scoreReflex(sess.params.rounds, body.clicks);
   else result = scoring.scoreVoice(sess.params.words, body.wordTimings, body.transcript);
 
-  const passed = result.score >= 60 && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic/.test(f));
+  const passed = result.score >= 60 && !result.flags.some(f => /perfect|zero-lag|uniform|before a human|no micro-corrections|synthetic|before a flash|identical reaction|look-think-act|zero reaction time|never re-acquired/.test(f));
   const actorId = 'human:' + (cookies(req).pop_actor || crypto.randomBytes(6).toString('hex'));
 
   if (passed) {
@@ -264,6 +274,12 @@ route('POST', '/api/admin/appeal/:id', async (req, res, params) => {
   if (!ap) return send(res, 404, { error: 'not_found' });
   logEvent('appeal', `Appeal #${ap.id} ${ap.status} (${ap.actorId.slice(0, 18)})`, {});
   send(res, 200, { ok: true, appeal: ap });
+});
+
+// ---------- honeypot trap (invisible to people, visible to DOM-reading agents) ----------
+route('GET', '/trap', async (req, res) => {
+  logEvent('trap', 'Trap link followed: only something reading the raw DOM would see it', { lane: 'trap' });
+  send(res, 200, '<!doctype html><title>Trap</title><body style="background:#0b0e14;color:#e8ecf4;font-family:sans-serif;padding:40px">This link is invisible to people and marked hidden from assistive tech. Only a program reading the raw page could follow it. This visit has been logged as automated traffic.</body>', { 'Content-Type': 'text/html' });
 });
 
 // ---------- static ----------
