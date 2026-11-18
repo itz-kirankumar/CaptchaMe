@@ -31,9 +31,12 @@ let tracking = null;
 function drawIdle() {
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = '#9aa4b8';
-  ctx.font = Math.round(Math.max(16, 16 * cv.width / cv.getBoundingClientRect().width)) + 'px sans-serif';
+  const t1 = 'Press start, then keep your pointer on the ring';
+  let fs1 = Math.max(16, 16 * cv.width / cv.getBoundingClientRect().width);
+  ctx.font = Math.round(fs1) + 'px sans-serif';
+  while (ctx.measureText(t1).width > cv.width * 0.9 && fs1 > 10) { fs1 -= 1; ctx.font = Math.round(fs1) + 'px sans-serif'; }
   ctx.textAlign = 'center';
-  ctx.fillText('Press start, then keep your pointer on the ring', cv.width / 2, cv.height / 2);
+  ctx.fillText(t1, cv.width / 2, cv.height / 2);
 }
 drawIdle();
 
@@ -175,8 +178,12 @@ const pcv = document.getElementById('pulsefield');
 const pctx = pcv.getContext('2d');
 (function drawPulseIdle() {
   pctx.clearRect(0, 0, pcv.width, pcv.height);
-  pctx.fillStyle = '#9aa4b8'; pctx.font = Math.round(Math.max(16, 16 * pcv.width / pcv.getBoundingClientRect().width)) + 'px sans-serif'; pctx.textAlign = 'center';
-  pctx.fillText('Press start, follow the ring, click when it flashes', pcv.width / 2, pcv.height / 2);
+  pctx.fillStyle = '#9aa4b8'; pctx.textAlign = 'center';
+  const t2 = 'Press start, follow the ring, click when it flashes';
+  let fs2 = Math.max(16, 16 * pcv.width / pcv.getBoundingClientRect().width);
+  pctx.font = Math.round(fs2) + 'px sans-serif';
+  while (pctx.measureText(t2).width > pcv.width * 0.9 && fs2 > 10) { fs2 -= 1; pctx.font = Math.round(fs2) + 'px sans-serif'; }
+  pctx.fillText(t2, pcv.width / 2, pcv.height / 2);
 })();
 
 document.getElementById('startPulse').addEventListener('click', async () => {
