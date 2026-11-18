@@ -228,3 +228,6 @@ a.trap { position: absolute; left: -10000px; top: -10000px; width: 1px; height: 
 .result.fail { background: rgba(255,93,108,.1); border: 1px solid var(--bot); }
 pre { background: #090d15; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.55; margin: 8px 0 0; }
 pre code { background: none; padding: 0; word-break: normal; }
+
+html.embed .nav, html.embed h1.page, html.embed .sub, html.embed main > p.note { display: none; }
+html.embed main { padding-top: 14px; }

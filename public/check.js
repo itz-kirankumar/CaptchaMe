@@ -15,9 +15,12 @@ async function post(url, body) {
   return { status: r.status, body: await r.json() };
 }
 
+const EMBED = new URLSearchParams(location.search).has('embed');
 function report(res) {
-  const passed = verdict(out, res, { redirect: true, failHint: 'You can retry here, or use the voice path.' });
-  if (passed) setTimeout(() => location.href = '/use.html', 2400);
+  const passed = verdict(out, res, { redirect: !EMBED, failHint: 'You can retry here, or use the voice path.' });
+  if (passed && EMBED && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'captchame:pass', pass_token: res.body && res.body.pass_token, score: res.body && res.body.score }, '*'); } catch {}
+  } else if (passed) setTimeout(() => location.href = '/use.html', 2400);
 }
 
 // ---------- ring ----------
@@ -28,7 +31,7 @@ let tracking = null;
 function drawIdle() {
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.fillStyle = '#9aa4b8';
-  ctx.font = '16px sans-serif';
+  ctx.font = Math.round(Math.max(16, 16 * cv.width / cv.getBoundingClientRect().width)) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('Press start, then keep your pointer on the ring', cv.width / 2, cv.height / 2);
 }
@@ -172,7 +175,7 @@ const pcv = document.getElementById('pulsefield');
 const pctx = pcv.getContext('2d');
 (function drawPulseIdle() {
   pctx.clearRect(0, 0, pcv.width, pcv.height);
-  pctx.fillStyle = '#9aa4b8'; pctx.font = '16px sans-serif'; pctx.textAlign = 'center';
+  pctx.fillStyle = '#9aa4b8'; pctx.font = Math.round(Math.max(16, 16 * pcv.width / pcv.getBoundingClientRect().width)) + 'px sans-serif'; pctx.textAlign = 'center';
   pctx.fillText('Press start, follow the ring, click when it flashes', pcv.width / 2, pcv.height / 2);
 })();
 

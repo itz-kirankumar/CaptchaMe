@@ -201,6 +201,14 @@ route('POST', '/api/challenge/submit', async (req, res) => {
   }
 });
 
+// ---------- API: verify a presence/agent pass (widget customers) ----------
+route('POST', '/api/pass/verify', async (req, res) => {
+  const body = await readBody(req);
+  const v = tokens.verify(String((body && body.pass) || ''), { consume: false });
+  if (!v.ok) return send(res, 200, { ok: false, reason: v.reason || 'invalid pass' });
+  send(res, 200, { ok: true, subject: v.kind, actor: v.actor, share: v.kind === 'agent' ? 'agent fair-share lane' : 'human presence pass' });
+});
+
 // ---------- API: voice STT via Sarvam (server-side key, capped) ----------
 // One STT call per voice challenge session, plus a daily cap, so the demo
 // cannot burn the owner's Sarvam credits. The browser falls back to its
