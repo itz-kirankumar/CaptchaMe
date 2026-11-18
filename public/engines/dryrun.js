@@ -7,7 +7,9 @@
   const HDR = { 'Content-Type': 'application/json', 'X-CM-Attacker': 'dry run' };
   const esc = s => String(s == null ? '' : s).replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const post = async (url, body, extra) => { const r = await fetch(url, { method: 'POST', headers: { ...HDR, ...(extra || {}) }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
+  let NONCE = null;
+  const getNonce = async () => { if (!NONCE) { try { const d = await (await fetch('/api/page/nonce', { cache: 'no-store' })).json(); NONCE = d.nonce || null; } catch { NONCE = null; } } return NONCE; };
+  const post = async (url, body, extra) => { if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; } const r = await fetch(url, { method: 'POST', headers: { ...HDR, ...(extra || {}) }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
   const waitFor = (type, P) => ({ ring: 0.75 * (P.durationMs || 0), pulse: 0.75 * (P.durationMs || 0), reflex: 0.75 * (P.totalMs || 0), beat: 0.75 * ((P.beats || [0]).slice(-1)[0] + 800), clash: 0.75 * (P.totalMs || 0), targets: 2100 }[type] || 0);
   const shared = {};
 

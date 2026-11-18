@@ -5,7 +5,9 @@
   const A = window.CMActors;
   const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const INK = { RED: '#ff4d5e', BLUE: '#4d8bff' };
-  const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CM-Attacker': 'live run' }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
+  let NONCE = null;
+  const getNonce = async () => { if (!NONCE) { try { const d = await (await fetch('/api/page/nonce', { cache: 'no-store' })).json(); NONCE = d.nonce || null; } catch { NONCE = null; } } return NONCE; };
+  const post = async (url, body) => { if (url === '/api/challenge/start') { const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; } const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CM-Attacker': 'live run' }, body: JSON.stringify(body) }); return { status: r.status, body: await r.json() }; };
   const seed = () => Math.random() * 1e9 | 0;
 
   // attacker options per format; each returns a submit payload

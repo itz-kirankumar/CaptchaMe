@@ -13,13 +13,14 @@ function check(name, cond, extra = '') {
   if (cond) { passed++; console.log('  PASS', name); }
   else { failed++; console.log('  FAIL', name, extra); }
 }
-let NONCE = null;
-async function pageNonce() {
-  if (!NONCE) { const r = await get('/api/page/nonce'); NONCE = r.body && r.body.nonce; }
-  return NONCE;
+const NONCES = {};
+async function pageNonce(headers = {}) {
+  const key = headers['User-Agent'] || '';
+  if (!NONCES[key]) { const r = await get('/api/page/nonce', headers); NONCES[key] = r.body && r.body.nonce; }
+  return NONCES[key];
 }
 async function post(path, body, headers = {}) {
-  if (body && (path === '/api/pass/silent' || path === '/api/pass/nudge')) body = { ...body, page_nonce: await pageNonce() };
+  if (body && (path === '/api/pass/silent' || path === '/api/pass/nudge' || path === '/api/challenge/start')) body = { ...body, page_nonce: await pageNonce(headers) };
   const r = await fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
   let b = null; try { b = await r.json(); } catch {}
   return { status: r.status, body: b };
@@ -401,6 +402,8 @@ async function runChallenge(type, payloadFn, wait = true) {
     const raw = await fetch(BASE + '/api/pass/silent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telemetry: tel, form_hash: FORM }) });
     const rawB = await raw.json();
     check('silent telemetry without a live page nonce is pushed to a full check', rawB.tier === 'challenge', JSON.stringify(rawB));
+    const rawStart = await fetch(BASE + '/api/challenge/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'ring' }) });
+    check('challenge start without a live page nonce is refused', rawStart.status === 403, 'HTTP ' + rawStart.status);
   }
   {
     const r = await post('/api/pass/silent', { telemetry: { timeOnPageMs: 400, fields: [{ keys: [], chars: 15 }], pointer: [], trustedSubmit: true, env: {} }, form_hash: FORM });

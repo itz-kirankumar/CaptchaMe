@@ -27,16 +27,32 @@
     return once().then(once).then(function () { RTT = Math.round(Math.min.apply(null, ts)); return RTT; }).catch(function () { return null; });
   }
 
+  // One page nonce per page view, shared by every protected form on the page.
+  var CM_NONCE = null, CM_NONCE_FIELD = null, CM_NONCE_STARTED = false;
+  function fetchNonce() {
+    if (CM_NONCE_STARTED) return Promise.resolve(CM_NONCE);
+    CM_NONCE_STARTED = true;
+    return fetch(ORIGIN + '/api/page/nonce', { cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.nonce) { CM_NONCE = d.nonce; CM_NONCE_FIELD = d.field || null; } return CM_NONCE; })
+      .catch(function () { return null; });
+  }
+
   function post(url, body) {
-    if (url === '/api/challenge/start') measureRtt();
-    var send = function (b) {
-      return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
-        .then(function (r) { return r.json(); });
-    };
-    if (url === '/api/challenge/submit') {
-      return measureRtt().then(function (rtt) { return send(rtt != null ? Object.assign({}, body, { rtt_ms: rtt }) : body); });
+    if (url === '/api/challenge/start') {
+      measureRtt();
+      return fetchNonce().then(function () {
+        return send(url, CM_NONCE ? Object.assign({}, body, { page_nonce: CM_NONCE }) : body);
+      });
     }
-    return send(body);
+    if (url === '/api/challenge/submit') {
+      return measureRtt().then(function (rtt) { return send(url, rtt != null ? Object.assign({}, body, { rtt_ms: rtt }) : body); });
+    }
+    return send(url, body);
+  }
+  function send(url, b) {
+    return fetch(ORIGIN + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
+      .then(function (r) { return r.json(); });
   }
 
   // Canonical form hash: SHA-256 of the sorted [name, value] pairs, ignoring the
@@ -58,10 +74,7 @@
     // page nonce arrives: extensions cannot hook a fixed captchame_pass input.
     var field = opts.field || 'cm_' + Math.random().toString(36).slice(2, 12);
     var pageNonce = null;
-    var nonceReady = fetch(ORIGIN + '/api/page/nonce', { cache: 'no-store', credentials: 'omit' })
-      .then(function (r) { return r.json(); })
-      .then(function (d) { if (d && d.nonce) { pageNonce = d.nonce; if (d.field && !opts.field) field = d.field; } })
-      .catch(function () { /* no nonce: the ladder will step up to a live check */ });
+    var nonceReady = fetchNonce().then(function () { pageNonce = CM_NONCE; if (CM_NONCE_FIELD && !opts.field) field = CM_NONCE_FIELD; });
     var fields = new Map(), pointer = [], ptype = 'mouse', scrolls = 0, busy = false, submitter = null;
 
     function rec(el) {

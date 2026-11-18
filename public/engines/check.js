@@ -26,8 +26,15 @@
     return RTT;
   }
 
+  let NONCE = null;
+  async function getNonce() {
+    if (NONCE) return NONCE;
+    try { const r = await fetch('/api/page/nonce', { cache: 'no-store' }); const d = await r.json(); NONCE = d.nonce || null; } catch { NONCE = null; }
+    return NONCE;
+  }
+
   async function post(url, body) {
-    if (url === '/api/challenge/start') measureRtt();
+    if (url === '/api/challenge/start') { measureRtt(); const n = await getNonce(); if (n) body = { ...body, page_nonce: n }; }
     if (url === '/api/challenge/submit') {
       if (FORM) body = { ...body, form_hash: FORM };
       const rtt = await measureRtt();
